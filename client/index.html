@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YAML to Gantt Chart with Monaco</title>
     <style>
+        /* ... (Your existing CSS, no changes needed here for this fix) ... */
         body {
             font-family: sans-serif;
             margin: 0;
@@ -12,8 +13,9 @@
             flex-direction: column;
             height: 100vh;
             background-color: #f0f0f0;
-            overflow: hidden; /* Prevent body scrollbars */
+            overflow: hidden;
         }
+
         header {
             background-color: #333;
             color: white;
@@ -21,39 +23,56 @@
             text-align: center;
             flex-shrink: 0;
         }
+
         h1 {
             margin: 0;
         }
+
         .container {
             display: flex;
             flex-grow: 1;
             overflow: hidden;
         }
 
-        .yaml-pane, .gantt-pane {
+        .yaml-pane {
             padding: 15px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Child elements will handle their own scroll if needed */
-        }
-
-        .yaml-pane {
-            /* width: 45%; Will be set by JS */
+            overflow: hidden;
             background-color: #1e1e1e;
             color: #d4d4d4;
         }
 
         .gantt-pane {
-            /* width: 55%; Will be set by JS */
+            padding: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             background-color: #fff;
             position: relative;
         }
-        /* Gantt pane needs its own overflow for the chart */
+
+        .gantt-chart-header {
+            padding: 15px;
+            padding-bottom: 0;
+            flex-shrink: 0;
+        }
+
+        .gantt-pane h3 {
+            margin: 0;
+        }
+
         #gantt-chart-target-container {
             flex-grow: 1;
+            overflow: auto;
             min-height: 0;
-            overflow: auto; /* For the chart itself */
+            padding: 0 15px 15px 15px;
+        }
+
+        #gantt-chart-target {
+            height: 100%;
         }
 
 
@@ -66,10 +85,12 @@
             align-items: center;
             justify-content: center;
         }
+
         .resizer:hover {
             background-color: #bbb;
         }
-        .resizer::before { /* Optional: add some dots for better visual cue */
+
+        .resizer::before {
             content: '⋮';
             color: #555;
             font-size: 12px;
@@ -77,19 +98,22 @@
         }
 
 
-        .yaml-pane h3, .gantt-pane h3 {
+        .yaml-pane h3 {
             flex-shrink: 0;
             margin-top: 0;
             margin-bottom: 10px;
+            color: #d4d4d4;
         }
-        .yaml-pane h3 { color: #d4d4d4; }
 
         .yaml-pane .file-controls,
         .yaml-pane #error-display {
             flex-shrink: 0;
             margin-bottom: 10px;
         }
-        .yaml-pane #error-display { margin-top: 0; } /* If file-controls is above */
+
+        .yaml-pane #error-display {
+            margin-top: 0;
+        }
 
 
         #monaco-editor-container {
@@ -98,21 +122,12 @@
             border: 1px solid #333;
         }
 
-        .gantt-pane h3 {
-            flex-shrink: 0;
-            margin-top: 0;
-            margin-bottom: 10px;
-        }
-        #gantt-chart-target { /* This is where Frappe Gantt renders its SVG */
-            /* Flex grow handled by parent #gantt-chart-target-container */
-        }
-
-
         .file-controls {
             display: flex;
             gap: 10px;
             align-items: center;
         }
+
         .file-controls button, .file-controls label {
             background-color: #007acc;
             color: white;
@@ -124,9 +139,11 @@
             text-align: center;
             transition: background-color 0.2s ease;
         }
+
         .file-controls button:hover, .file-controls label:hover {
             background-color: #005a9e;
         }
+
         #load-file-input {
             display: none;
         }
@@ -171,17 +188,35 @@
         </div>
         <div class="resizer" id="resizer"></div>
         <div class="gantt-pane" id="gantt-pane">
-            <h3>Gantt Chart Preview:</h3>
+            <div class="gantt-chart-header">
+                <h3>Gantt Chart Preview:</h3>
+            </div>
             <div id="gantt-chart-target-container">
                 <div id="gantt-chart-target"></div>
             </div>
         </div>
     </div>
 
+    <!-- Load Day.js and its plugin BEFORE other scripts that might depend on it or Monaco loader -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/customParseFormat.js"></script>
+    <script>
+        // Ensure dayjs and its plugin are available globally before Monaco's loader runs.
+        // The plugin script typically extends dayjs automatically if dayjs is already global.
+        // If not, you might need to do:
+        if (window.dayjs && window.dayjs_plugin_customParseFormat) {
+            dayjs.extend(window.dayjs_plugin_customParseFormat);
+        } else {
+            console.error("Day.js or its CustomParseFormat plugin failed to load.");
+        }
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+
     <script>
+        // --- Main Application Logic ---
         const yamlPane = document.getElementById('yaml-pane');
         const ganttPane = document.getElementById('gantt-pane');
         const resizer = document.getElementById('resizer');
@@ -193,149 +228,161 @@
         const loadFileInput = document.getElementById('load-file-input');
         const mainContainer = document.getElementById('main-container');
 
-
         let monacoEditor;
         let gantt;
         let debounceTimer;
-        const LOCAL_STORAGE_KEY = 'yamlGanttConfig_vMonaco_3'; // Updated key
+        const LOCAL_STORAGE_KEY = 'yamlGanttConfig'; // Consistent key
 
-        // Initial pane widths (could also be from localStorage)
-        let initialYamlPaneWidth = 45; // Percentage
-        yamlPane.style.width = `${initialYamlPaneWidth}%`;
-        ganttPane.style.width = `${100 - initialYamlPaneWidth - (resizer.offsetWidth / mainContainer.offsetWidth * 100)}%`;
+        let initialYamlPaneWidth = 25;
+        const savedYamlPaneWidth = localStorage.getItem(LOCAL_STORAGE_KEY + '_yamlWidth');
+        if(savedYamlPaneWidth) {
+            let parsedWidth = parseFloat(savedYamlPaneWidth);
+            initialYamlPaneWidth = Math.max(15, Math.min(parsedWidth, 85));
+        }
 
+        function applyInitialWidths() {
+            yamlPane.style.width = `${initialYamlPaneWidth}%`;
+            const resizerWidthPx = resizer.offsetWidth;
+            const containerWidthPx = mainContainer.offsetWidth;
+            if(containerWidthPx > 0) {
+                const resizerWidthPercent = (resizerWidthPx / containerWidthPx) * 100;
+                ganttPane.style.width = `${100 - initialYamlPaneWidth - resizerWidthPercent}%`;
+            } else {
+                ganttPane.style.width = `${100 - initialYamlPaneWidth - 1}%`;
+            }
+        }
 
         const defaultYaml = `
-title: El Salvador 2025
+title: El Salvador Trip
 viewMode: Day
 
 tasks:
-  - id: 'flight1'
+  - id: 'flightToSAL'
     name: 'Flight: SFO to SAL'
-    start: '2025-07-26 14:20'
-    end: '2025-07-26 20:50'
+    start: '2025-07-26 2:20pm'
+    end: '2025-07-26 8:50PM'
     custom_class: 'bar-flight'
-  - id: 'hyatt'
-    name: 'City: Hyatt Stay (3 nights)'
+  - id: 'hyattStay'
+    name: 'City: Hyatt (3 nights)'
     start: '2025-07-26'
     end: '2025-07-28'
-    dependencies: 'flight1'
+    dependencies: 'flightToSAL'
     custom_class: 'bar-hotel'
-  # ... (rest of your default YAML, ensure it is complete)
-  - id: 'recreativo'
-    name: 'Country: Parque Recreativo Los Chorros (1 night)'
-    start: '2025-07-29'
-    end: '2025-07-29'
-    dependencies: 'hyatt'
-    custom_class: 'bar-activity-stay'
-  - id: 'casa1800'
-    name: 'Country: Casa 1800 Cerro Verde (1 night)'
-    start: '2025-07-30'
-    end: '2025-07-30'
-    dependencies: 'recreativo'
-    custom_class: 'bar-hotel'
-  - id: 'cardedeu'
-    name: 'Country: Cardedeu Hotel (1 night)'
-    start: '2025-07-31'
-    end: '2025-07-31'
-    dependencies: 'casa1800'
-    custom_class: 'bar-hotel'
-  - id: 'arq'
-    name: 'Country: Parque Arqueológico Tazumal (Day Activity)'
-    start: '2025-08-01'
-    end: '2025-08-01'
-    dependencies: 'cardedeu'
+  - id: 'losChorros'
+    name: 'Visit: Los Chorros'
+    start: '2025-07-29 9am'
+    end: '2025-07-29 5pm'
+    dependencies: 'hyattStay'
     custom_class: 'bar-activity'
-  - id: 'santa'
-    name: 'Country: Santa Teresa Hot Springs (1 night)'
-    start: '2025-08-01'
-    end: '2025-08-01'
-    dependencies: 'arq'
-    custom_class: 'bar-activity-stay'
-  - id: 'albania'
-    name: 'Country: Café Albania, Cantón san Ramón (1 night)'
-    start: '2025-08-02'
-    end: '2025-08-02'
-    dependencies: 'santa'
-    custom_class: 'bar-activity-stay'
-  - id: 'kafen'
-    name: 'Country: Kafen Hotel, San Jose La Majada (1 night)'
-    start: '2025-08-03'
-    end: '2025-08-03'
-    dependencies: 'albania'
-    custom_class: 'bar-hotel'
-  - id: 'almare'
-    name: 'Beach: Almare Zonte, Playa El Zonte (1 night)'
-    start: '2025-08-04'
-    end: '2025-08-04'
-    dependencies: 'kafen'
-    custom_class: 'bar-hotel'
-  - id: 'fara'
-    name: 'Beach: Hotel Los Farallones (1 night)'
-    start: '2025-08-05'
-    end: '2025-08-05'
-    dependencies: 'almare'
-    custom_class: 'bar-hotel'
-  - id: 'buffer_days'
-    name: 'Travel / Free Days before Departure'
-    start: '2025-08-06'
-    end: '2025-08-08'
-    dependencies: 'fara'
-    custom_class: 'bar-buffer'
-  - id: 'flight2'
-    name: 'Flight: SAL to SFO'
-    start: '2025-08-09 17:40'
-    end: '2025-08-09 22:45'
-    dependencies: 'buffer_days'
-    custom_class: 'bar-flight'
 `;
 
+        function parseDateToGanttFormat(dateString, taskName, fieldName) {
+            if (!dateString) return null;
+            if (typeof dayjs === 'undefined') { // Guard against dayjs not loading
+                console.error("dayjs is not loaded. Cannot parse dates.");
+                return dateString; // Return original, will likely fail in Frappe
+            }
+
+            const formats = [
+                'YYYY-MM-DD h:mma', 'YYYY-MM-DD ha', 'YYYY-MM-DD H:mm', 'YYYY-MM-DD HH:mm',
+                'YYYY-MM-DD hh:mma', 'YYYY-MM-DD hha', 'YYYY-MM-DD h:mm A', 'YYYY-MM-DD h A',
+                'YYYY-MM-DD'
+            ];
+            let parsedDate = dayjs(dateString, formats, true); // true for strict format matching
+
+            if (!parsedDate.isValid()) { // If strict matching fails, try flexible parsing
+                parsedDate = dayjs(dateString);
+            }
+
+            if (parsedDate.isValid()) {
+                return parsedDate.format('YYYY-MM-DD HH:mm:ss');
+            } else {
+                console.warn(`Could not parse ${fieldName} date "${dateString}" for task "${taskName || 'Unknown'}".`);
+                return dateString; // Return original if all parsing attempts fail
+            }
+        }
+
         function renderGantt(yamlString) {
-            // ... (renderGantt function remains largely the same as before)
+            // ... (renderGantt function as in your provided code, using the parseDateToGanttFormat above)
             errorDisplay.style.display = 'none';
             errorDisplay.textContent = '';
+            let parsingErrors = [];
+
             try {
                 const config = jsyaml.load(yamlString);
-                if (!config || typeof config !== 'object') throw new Error("YAML content is empty or not an object.");
+                if(!config || typeof config !== 'object') throw new Error("YAML content is empty or not an object.");
                 const tasks = config.tasks || [];
                 const viewMode = config.viewMode || 'Day';
                 const chartTitle = config.title || 'Gantt Chart';
 
                 const headerTitle = document.querySelector('header h1');
-                if (headerTitle) headerTitle.textContent = chartTitle + " Live Preview";
-                if (!Array.isArray(tasks)) throw new Error("'tasks' property must be an array.");
+                if(headerTitle) headerTitle.textContent = chartTitle + " Live Preview";
+                if(!Array.isArray(tasks)) throw new Error("'tasks' property must be an array.");
 
                 const formattedTasks = tasks.map(task => {
-                    if (!task.id || !task.name || !task.start || !task.end) {
-                        console.warn("Skipping task due to missing id, name, start, or end:", task);
+                    if(!task.id || !task.name || !task.start || !task.end) {
+                        parsingErrors.push(`Task "${task.name || task.id || 'Unknown'}" is missing required fields (id, name, start, end).`);
                         return null;
                     }
+
+                    const startDateStr = parseDateToGanttFormat(task.start, task.name, 'start');
+                    const endDateStr = parseDateToGanttFormat(task.end, task.name, 'end');
+
+                    // Check validity again after our parsing attempt.
+                    // Dayjs object might be valid but formatted string could be "Invalid Date" if original was truly bad.
+                    // Or, if our parseDateToGanttFormat returned the original bad string.
+                    if (!dayjs(startDateStr).isValid() || startDateStr === task.start && !dayjs(task.start).isValid() ) {
+                        parsingErrors.push(`Invalid start date for task "${task.name}": "${task.start}"`);
+                        return null;
+                    }
+                    if (!dayjs(endDateStr).isValid() || endDateStr === task.end && !dayjs(task.end).isValid() ) {
+                        parsingErrors.push(`Invalid end date for task "${task.name}": "${task.end}"`);
+                        return null;
+                    }
+
                     return {
-                        id: String(task.id), name: String(task.name), start: task.start, end: task.end,
+                        id: String(task.id), name: String(task.name),
+                        start: startDateStr,
+                        end: endDateStr,
                         dependencies: task.dependencies || '', custom_class: task.custom_class || ''
                     };
                 }).filter(task => task !== null);
 
+                if (parsingErrors.length > 0) {
+                    errorDisplay.textContent = "Data Issues:\n" + parsingErrors.join("\n");
+                    errorDisplay.style.display = 'block';
+                }
+
                 ganttChartTargetElement.innerHTML = '';
-                if (formattedTasks.length === 0) {
+                if(formattedTasks.length === 0) { // This condition handles if ALL tasks were invalid or no tasks
                     gantt = null;
                     const noTaskMsg = document.createElement('p');
-                    noTaskMsg.textContent = tasks.length > 0 ? "No valid tasks found." : "No tasks defined in YAML.";
-                    noTaskMsg.style.color = tasks.length > 0 ? "orange" : "#666";
+                    if (tasks.length > 0 && parsingErrors.length > 0) {
+                        noTaskMsg.textContent = "No valid tasks to display due to errors. Check messages.";
+                        noTaskMsg.style.color = "orange";
+                    } else if (tasks.length > 0) {
+                        noTaskMsg.textContent = "No valid tasks found after filtering.";
+                        noTaskMsg.style.color = "orange";
+                    }
+                    else {
+                        noTaskMsg.textContent = "No tasks defined in YAML.";
+                        noTaskMsg.style.color = "#666";
+                    }
                     noTaskMsg.style.textAlign = "center";
                     noTaskMsg.style.paddingTop = "20px";
                     ganttChartTargetElement.appendChild(noTaskMsg);
                     return;
                 }
 
-                gantt = new Gantt("#gantt-chart-target", formattedTasks, { // Target the inner div
+                gantt = new Gantt("#gantt-chart-target", formattedTasks, {
                     header_height: 50, column_width: 30, step: 24,
                     view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
                     bar_height: 20, bar_corner_radius: 3, arrow_curve: 5, padding: 18,
-                    view_mode: viewMode, date_format: 'YYYY-MM-DD HH:mm', language: 'en',
+                    view_mode: viewMode, date_format: 'YYYY-MM-DD HH:mm:ss',
+                    language: 'en',
                     custom_popup_html: function(task) {
-                        const startDate = task._start ? task._start.toLocaleDateString() : new Date(task.start).toLocaleDateString();
-                        const endDate = task._end ? task._end.toLocaleDateString() : new Date(task.end).toLocaleDateString();
+                        const startDate = task._start ? dayjs(task._start).format('MM/DD/YYYY h:mm A') : "Invalid";
+                        const endDate = task._end ? dayjs(task._end).format('MM/DD/YYYY h:mm A') : "Invalid";
                         return `<div style="padding:10px; font-size:12px; color: #333;">
                                     <h5 style="margin:0 0 5px 0;">${task.name}</h5>
                                     <p style="margin:3px 0;">Start: ${startDate}</p>
@@ -343,72 +390,53 @@ tasks:
                                 </div>`;
                     }
                 });
-            } catch (e) {
+            } catch(e) {
                 console.error("Error processing YAML or rendering Gantt:", e);
-                errorDisplay.textContent = `Error: ${e.message}\n${e.stack ? e.stack.split('\n').slice(0,3).join('\n') : ''}`;
+                errorDisplay.textContent = `Error: ${e.message}\n${e.stack ? e.stack.split('\n').slice(0, 3).join('\n') : ''}`;
                 errorDisplay.style.display = 'block';
                 ganttChartTargetElement.innerHTML = `<p style="color:red;text-align:center;padding-top:20px;">Failed to render chart.</p>`;
                 gantt = null;
             }
         }
 
-        // --- Monaco Editor Setup ---
-        require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
-        let proxy = URL.createObjectURL(new Blob([`
+        require.config({paths: {'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'}});
+        let workerProxy = URL.createObjectURL(new Blob([`
             self.MonacoEnvironment = {
                 baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/'
             };
             importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');
-        `], { type: 'text/javascript' }));
-        window.MonacoEnvironment = { getWorkerUrl: () => proxy };
+        `], {type: 'text/javascript'})); // Renamed 'proxy' to 'workerProxy' for clarity
+        window.MonacoEnvironment = {getWorkerUrl: () => workerProxy}; // Use the renamed variable
 
         require(['vs/editor/editor.main'], function() {
+            applyInitialWidths();
             const savedYaml = localStorage.getItem(LOCAL_STORAGE_KEY) || defaultYaml.trim();
-            const savedYamlPaneWidth = localStorage.getItem(LOCAL_STORAGE_KEY + '_yamlWidth');
-
-            if (savedYamlPaneWidth) {
-                initialYamlPaneWidth = parseFloat(savedYamlPaneWidth);
-                yamlPane.style.width = `${initialYamlPaneWidth}%`;
-                const resizerWidthPercent = (resizer.offsetWidth / mainContainer.offsetWidth * 100);
-                ganttPane.style.width = `${100 - initialYamlPaneWidth - resizerWidthPercent}%`;
-
-            }
-
-
             monacoEditor = monaco.editor.create(monacoEditorContainer, {
-                value: savedYaml,
-                language: 'yaml',
-                theme: 'vs-dark',
-                automaticLayout: true, // Important for resizing
-                minimap: { enabled: false },
-                wordWrap: 'on',
-                scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 }
+                value: savedYaml, language: 'yaml', theme: 'vs-dark',
+                automaticLayout: true, minimap: {enabled: false}, wordWrap: 'on',
+                scrollbar: {verticalScrollbarSize: 10, horizontalScrollbarSize: 10}
             });
-
             renderGantt(monacoEditor.getValue());
-
             monacoEditor.onDidChangeModelContent(() => {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     const currentYaml = monacoEditor.getValue();
                     renderGantt(currentYaml);
-                    try {
-                        localStorage.setItem(LOCAL_STORAGE_KEY, currentYaml);
-                    } catch (e) {
+                    try { localStorage.setItem(LOCAL_STORAGE_KEY, currentYaml); }
+                    catch(e) {
                         console.warn("LocalStorage save error:", e);
                         errorDisplay.textContent = "Warning: Could not save to local storage.";
                         errorDisplay.style.color = "#ffcc00";
                         errorDisplay.style.display = 'block';
-                        setTimeout(() => { errorDisplay.style.display = 'none';}, 5000);
+                        setTimeout(() => { errorDisplay.style.display = 'none'; }, 5000);
                     }
                 }, 700);
             });
 
-            // --- File Operations ---
             saveToDiskButton.addEventListener('click', () => {
-                if (!monacoEditor) return;
+                if(!monacoEditor) return;
                 const yamlContent = monacoEditor.getValue();
-                const blob = new Blob([yamlContent], { type: 'text/yaml;charset=utf-8;' });
+                const blob = new Blob([yamlContent], {type: 'text/yaml;charset=utf-8;'});
                 const link = document.createElement("a");
                 const objectURL = URL.createObjectURL(blob);
                 link.setAttribute("href", objectURL);
@@ -420,12 +448,12 @@ tasks:
             });
 
             loadFileInput.addEventListener('change', (event) => {
-                if (!monacoEditor) return;
+                if(!monacoEditor) return;
                 const file = event.target.files[0];
-                if (file) {
+                if(file) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        if (monacoEditor) monacoEditor.setValue(e.target.result);
+                        if(monacoEditor) monacoEditor.setValue(e.target.result);
                     };
                     reader.onerror = (err) => {
                         console.error("File reading error:", err);
@@ -437,83 +465,53 @@ tasks:
                 }
             });
 
-            // --- Keyboard Shortcuts ---
             document.addEventListener('keydown', function(event) {
-                if (event.ctrlKey || event.metaKey) { // metaKey for MacOS
-                    if (event.key === 's' || event.key === 'S') {
+                if(event.ctrlKey || event.metaKey) {
+                    if(event.key === 's' || event.key === 'S') {
                         event.preventDefault();
                         saveToDiskButton.click();
-                    } else if (event.key === 'o' || event.key === 'O') {
+                    } else if(event.key === 'o' || event.key === 'O') {
                         event.preventDefault();
                         loadFileInput.click();
                     }
                 }
             });
 
-            // --- Resizer Logic ---
             let isResizing = false;
-            let initialMouseX, initialYamlWidthPx, initialGanttWidthPx;
+            let initialMouseX;
+            let initialYamlWidthPxAtDragStart;
 
             resizer.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                isResizing = true;
-                initialMouseX = e.clientX;
-                initialYamlWidthPx = yamlPane.offsetWidth;
-                // initialGanttWidthPx = ganttPane.offsetWidth; // Not strictly needed if we recalculate
-
+                e.preventDefault(); isResizing = true; initialMouseX = e.clientX;
+                initialYamlWidthPxAtDragStart = yamlPane.offsetWidth;
                 document.addEventListener('mousemove', handleMouseMove);
                 document.addEventListener('mouseup', handleMouseUp);
-                // Add a class to body to prevent text selection during drag
-                document.body.style.userSelect = 'none';
-                document.body.style.pointerEvents = 'none'; // Prevent iframe/object interference
+                document.body.style.userSelect = 'none'; document.body.style.pointerEvents = 'none';
             });
-
             function handleMouseMove(e) {
-                if (!isResizing) return;
-
+                if(!isResizing) return;
                 const dx = e.clientX - initialMouseX;
-                let newYamlWidthPx = initialYamlWidthPx + dx;
-
+                let newYamlWidthPx = initialYamlWidthPxAtDragStart + dx;
                 const containerWidthPx = mainContainer.offsetWidth;
                 const resizerWidthPx = resizer.offsetWidth;
-
-                // Constraints (e.g., min 20% width for each pane)
-                const minPaneWidthPx = containerWidthPx * 0.20;
-                const maxYamlWidthPx = containerWidthPx - minPaneWidthPx - resizerWidthPx;
-
-                newYamlWidthPx = Math.max(minPaneWidthPx, Math.min(newYamlWidthPx, maxYamlWidthPx));
-
+                const minPaneWidthPx = containerWidthPx * 0.15;
+                const maxPaneWidthPx = containerWidthPx * 0.85;
+                newYamlWidthPx = Math.max(minPaneWidthPx, Math.min(newYamlWidthPx, maxPaneWidthPx - resizerWidthPx));
                 const newYamlWidthPercent = (newYamlWidthPx / containerWidthPx) * 100;
                 const newGanttWidthPercent = 100 - newYamlWidthPercent - (resizerWidthPx / containerWidthPx * 100);
-
                 yamlPane.style.width = `${newYamlWidthPercent}%`;
                 ganttPane.style.width = `${newGanttWidthPercent}%`;
-
-                // Monaco editor should resize automatically due to automaticLayout: true
-                // If Frappe-Gantt needs manual refresh, it would go here, but can be slow.
-                // For now, rely on CSS reflow.
+                if(monacoEditor) { monacoEditor.layout(); }
             }
-
             function handleMouseUp() {
-                if (!isResizing) return;
+                if(!isResizing) return;
                 isResizing = false;
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('mouseup', handleMouseUp);
-                document.body.style.userSelect = '';
-                document.body.style.pointerEvents = '';
-
-                // Save the new width to localStorage
+                document.body.style.userSelect = ''; document.body.style.pointerEvents = '';
                 const currentYamlWidthPercent = (yamlPane.offsetWidth / mainContainer.offsetWidth) * 100;
                 localStorage.setItem(LOCAL_STORAGE_KEY + '_yamlWidth', currentYamlWidthPercent.toFixed(2));
-
-
-                // Explicitly layout Monaco if needed, though automaticLayout should handle it.
-                if (monacoEditor) {
-                    monacoEditor.layout();
-                }
-                // Frappe-Gantt might also need a nudge if things look off after resize.
-                // A full re-render is heavy, so only if absolutely necessary.
-                // For now, observe if layout() on Monaco + CSS reflow is enough.
+                if(monacoEditor) { monacoEditor.layout(); }
             }
         });
     </script>
