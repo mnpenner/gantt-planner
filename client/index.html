@@ -12,77 +12,103 @@
             flex-direction: column;
             height: 100vh;
             background-color: #f0f0f0;
+            overflow: hidden; /* Prevent body scrollbars */
         }
         header {
             background-color: #333;
             color: white;
-            padding: 5px 20px; /* Reduced top/bottom padding */
+            padding: 5px 20px;
             text-align: center;
             flex-shrink: 0;
+        }
+        h1 {
+            margin: 0;
         }
         .container {
             display: flex;
             flex-grow: 1;
-            overflow: hidden; /* Prevent container itself from scrolling due to oversized children */
+            overflow: hidden;
         }
 
-        /* Specific Pane Styling */
-        .yaml-pane {
-            width: 45%;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
+        .yaml-pane, .gantt-pane {
             padding: 15px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            /* No overflow here; children manage their own or are clipped by .container */
+            overflow: hidden; /* Child elements will handle their own scroll if needed */
+        }
+
+        .yaml-pane {
+            /* width: 45%; Will be set by JS */
+            background-color: #1e1e1e;
+            color: #d4d4d4;
         }
 
         .gantt-pane {
-            width: 55%;
+            /* width: 55%; Will be set by JS */
             background-color: #fff;
-            padding: 15px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            position: relative; /* For Frappe Gantt positioning */
-            overflow: auto; /* This pane must scroll for the Gantt chart */
+            position: relative;
+        }
+        /* Gantt pane needs its own overflow for the chart */
+        #gantt-chart-target-container {
+            flex-grow: 1;
+            min-height: 0;
+            overflow: auto; /* For the chart itself */
         }
 
-        /* Children of .yaml-pane */
-        .yaml-pane h3,
-        .yaml-pane .file-controls,
-        .yaml-pane #error-display {
-            flex-shrink: 0; /* Prevent these elements from shrinking */
-            margin-top: 0; /* Consistent for h3 */
-            margin-bottom: 10px; /* Consistent spacing */
+
+        .resizer {
+            width: 10px;
+            background-color: #ccc;
+            cursor: col-resize;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .resizer:hover {
+            background-color: #bbb;
+        }
+        .resizer::before { /* Optional: add some dots for better visual cue */
+            content: '⋮';
+            color: #555;
+            font-size: 12px;
+            line-height: 0;
+        }
+
+
+        .yaml-pane h3, .gantt-pane h3 {
+            flex-shrink: 0;
+            margin-top: 0;
+            margin-bottom: 10px;
         }
         .yaml-pane h3 { color: #d4d4d4; }
-        .yaml-pane #error-display { margin-top: 10px; } /* Add space if it appears above editor */
+
+        .yaml-pane .file-controls,
+        .yaml-pane #error-display {
+            flex-shrink: 0;
+            margin-bottom: 10px;
+        }
+        .yaml-pane #error-display { margin-top: 0; } /* If file-controls is above */
 
 
         #monaco-editor-container {
-            flex-grow: 1; /* Key: Make this div take all available vertical space */
-            min-height: 0; /* Key: Allows the div to shrink to 0 if necessary before growing */
-            border: 1px solid #333; /* Visual border */
-            /* Monaco editor instance itself will fill this container */
+            flex-grow: 1;
+            min-height: 0;
+            border: 1px solid #333;
         }
 
-        /* Children of .gantt-pane */
         .gantt-pane h3 {
             flex-shrink: 0;
             margin-top: 0;
             margin-bottom: 10px;
         }
-        #gantt-chart-target {
-            flex-grow: 1; /* Make this div take all available vertical space */
-            min-height: 0; /* Good practice for flex-grow items */
-            /* Frappe-Gantt SVG will be rendered here. Scrolling is handled by .gantt-pane's overflow:auto */
+        #gantt-chart-target { /* This is where Frappe Gantt renders its SVG */
+            /* Flex grow handled by parent #gantt-chart-target-container */
         }
 
 
         .file-controls {
-            /* padding-bottom: 10px; removed, margin-bottom on h3/error handles spacing */
             display: flex;
             gap: 10px;
             align-items: center;
@@ -105,7 +131,7 @@
             display: none;
         }
 
-        .error-message { /* Base style for error message */
+        .error-message {
             color: #ff8a80;
             background-color: #2c0b08;
             border: 1px solid #ff8a80;
@@ -115,7 +141,6 @@
             white-space: pre-wrap;
         }
 
-        /* Frappe Gantt specific styling (colors for custom_class) */
         .gantt .bar-label { font-size: 12px; font-weight: 500; fill: #333; }
         .gantt .bar-wrapper.active .bar { filter: brightness(130%); }
         .gantt .bar-flight .bar { fill: #8ECAE6; }
@@ -133,8 +158,8 @@
     <header>
         <h1>YAML to Gantt Chart Live Preview</h1>
     </header>
-    <div class="container">
-        <div class="yaml-pane">
+    <div class="container" id="main-container">
+        <div class="yaml-pane" id="yaml-pane">
             <h3>YAML Configuration:</h3>
             <div class="file-controls">
                 <button id="save-to-disk-button">Save YAML</button>
@@ -144,9 +169,12 @@
             <div id="error-display" class="error-message" style="display:none;"></div>
             <div id="monaco-editor-container"></div>
         </div>
-        <div class="gantt-pane">
+        <div class="resizer" id="resizer"></div>
+        <div class="gantt-pane" id="gantt-pane">
             <h3>Gantt Chart Preview:</h3>
-            <div id="gantt-chart-target"></div>
+            <div id="gantt-chart-target-container">
+                <div id="gantt-chart-target"></div>
+            </div>
         </div>
     </div>
 
@@ -154,16 +182,28 @@
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
     <script>
+        const yamlPane = document.getElementById('yaml-pane');
+        const ganttPane = document.getElementById('gantt-pane');
+        const resizer = document.getElementById('resizer');
+        const ganttChartTargetContainer = document.getElementById('gantt-chart-target-container');
         const ganttChartTargetElement = document.getElementById('gantt-chart-target');
         const errorDisplay = document.getElementById('error-display');
         const monacoEditorContainer = document.getElementById('monaco-editor-container');
         const saveToDiskButton = document.getElementById('save-to-disk-button');
         const loadFileInput = document.getElementById('load-file-input');
+        const mainContainer = document.getElementById('main-container');
+
 
         let monacoEditor;
         let gantt;
         let debounceTimer;
-        const LOCAL_STORAGE_KEY = 'yamlGanttConfig_vMonaco_2'; // Slightly new key
+        const LOCAL_STORAGE_KEY = 'yamlGanttConfig_vMonaco_3'; // Updated key
+
+        // Initial pane widths (could also be from localStorage)
+        let initialYamlPaneWidth = 45; // Percentage
+        yamlPane.style.width = `${initialYamlPaneWidth}%`;
+        ganttPane.style.width = `${100 - initialYamlPaneWidth - (resizer.offsetWidth / mainContainer.offsetWidth * 100)}%`;
+
 
         const defaultYaml = `
 title: El Salvador 2025
@@ -181,13 +221,61 @@ tasks:
     end: '2025-07-28'
     dependencies: 'flight1'
     custom_class: 'bar-hotel'
+  # ... (rest of your default YAML, ensure it is complete)
   - id: 'recreativo'
     name: 'Country: Parque Recreativo Los Chorros (1 night)'
     start: '2025-07-29'
     end: '2025-07-29'
     dependencies: 'hyatt'
     custom_class: 'bar-activity-stay'
-  # ... (rest of your default YAML) ...
+  - id: 'casa1800'
+    name: 'Country: Casa 1800 Cerro Verde (1 night)'
+    start: '2025-07-30'
+    end: '2025-07-30'
+    dependencies: 'recreativo'
+    custom_class: 'bar-hotel'
+  - id: 'cardedeu'
+    name: 'Country: Cardedeu Hotel (1 night)'
+    start: '2025-07-31'
+    end: '2025-07-31'
+    dependencies: 'casa1800'
+    custom_class: 'bar-hotel'
+  - id: 'arq'
+    name: 'Country: Parque Arqueológico Tazumal (Day Activity)'
+    start: '2025-08-01'
+    end: '2025-08-01'
+    dependencies: 'cardedeu'
+    custom_class: 'bar-activity'
+  - id: 'santa'
+    name: 'Country: Santa Teresa Hot Springs (1 night)'
+    start: '2025-08-01'
+    end: '2025-08-01'
+    dependencies: 'arq'
+    custom_class: 'bar-activity-stay'
+  - id: 'albania'
+    name: 'Country: Café Albania, Cantón san Ramón (1 night)'
+    start: '2025-08-02'
+    end: '2025-08-02'
+    dependencies: 'santa'
+    custom_class: 'bar-activity-stay'
+  - id: 'kafen'
+    name: 'Country: Kafen Hotel, San Jose La Majada (1 night)'
+    start: '2025-08-03'
+    end: '2025-08-03'
+    dependencies: 'albania'
+    custom_class: 'bar-hotel'
+  - id: 'almare'
+    name: 'Beach: Almare Zonte, Playa El Zonte (1 night)'
+    start: '2025-08-04'
+    end: '2025-08-04'
+    dependencies: 'kafen'
+    custom_class: 'bar-hotel'
+  - id: 'fara'
+    name: 'Beach: Hotel Los Farallones (1 night)'
+    start: '2025-08-05'
+    end: '2025-08-05'
+    dependencies: 'almare'
+    custom_class: 'bar-hotel'
   - id: 'buffer_days'
     name: 'Travel / Free Days before Departure'
     start: '2025-08-06'
@@ -203,6 +291,7 @@ tasks:
 `;
 
         function renderGantt(yamlString) {
+            // ... (renderGantt function remains largely the same as before)
             errorDisplay.style.display = 'none';
             errorDisplay.textContent = '';
             try {
@@ -231,7 +320,7 @@ tasks:
                 if (formattedTasks.length === 0) {
                     gantt = null;
                     const noTaskMsg = document.createElement('p');
-                    noTaskMsg.textContent = tasks.length > 0 ? "No valid tasks found. Ensure tasks have id, name, start, and end." : "No tasks defined in YAML. Add tasks to see the chart.";
+                    noTaskMsg.textContent = tasks.length > 0 ? "No valid tasks found." : "No tasks defined in YAML.";
                     noTaskMsg.style.color = tasks.length > 0 ? "orange" : "#666";
                     noTaskMsg.style.textAlign = "center";
                     noTaskMsg.style.paddingTop = "20px";
@@ -239,7 +328,7 @@ tasks:
                     return;
                 }
 
-                gantt = new Gantt("#gantt-chart-target", formattedTasks, {
+                gantt = new Gantt("#gantt-chart-target", formattedTasks, { // Target the inner div
                     header_height: 50, column_width: 30, step: 24,
                     view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
                     bar_height: 20, bar_corner_radius: 3, arrow_curve: 5, padding: 18,
@@ -258,11 +347,12 @@ tasks:
                 console.error("Error processing YAML or rendering Gantt:", e);
                 errorDisplay.textContent = `Error: ${e.message}\n${e.stack ? e.stack.split('\n').slice(0,3).join('\n') : ''}`;
                 errorDisplay.style.display = 'block';
-                ganttChartTargetElement.innerHTML = `<p style="color:red;text-align:center;padding-top:20px;">Failed to render chart. Check YAML syntax.</p>`;
+                ganttChartTargetElement.innerHTML = `<p style="color:red;text-align:center;padding-top:20px;">Failed to render chart.</p>`;
                 gantt = null;
             }
         }
 
+        // --- Monaco Editor Setup ---
         require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
         let proxy = URL.createObjectURL(new Blob([`
             self.MonacoEnvironment = {
@@ -272,14 +362,24 @@ tasks:
         `], { type: 'text/javascript' }));
         window.MonacoEnvironment = { getWorkerUrl: () => proxy };
 
-
         require(['vs/editor/editor.main'], function() {
-            const savedYaml = localStorage.getItem(LOCAL_STORAGE_KEY);
+            const savedYaml = localStorage.getItem(LOCAL_STORAGE_KEY) || defaultYaml.trim();
+            const savedYamlPaneWidth = localStorage.getItem(LOCAL_STORAGE_KEY + '_yamlWidth');
+
+            if (savedYamlPaneWidth) {
+                initialYamlPaneWidth = parseFloat(savedYamlPaneWidth);
+                yamlPane.style.width = `${initialYamlPaneWidth}%`;
+                const resizerWidthPercent = (resizer.offsetWidth / mainContainer.offsetWidth * 100);
+                ganttPane.style.width = `${100 - initialYamlPaneWidth - resizerWidthPercent}%`;
+
+            }
+
+
             monacoEditor = monaco.editor.create(monacoEditorContainer, {
-                value: savedYaml || defaultYaml.trim(),
+                value: savedYaml,
                 language: 'yaml',
                 theme: 'vs-dark',
-                automaticLayout: true,
+                automaticLayout: true, // Important for resizing
                 minimap: { enabled: false },
                 wordWrap: 'on',
                 scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 }
@@ -304,6 +404,7 @@ tasks:
                 }, 700);
             });
 
+            // --- File Operations ---
             saveToDiskButton.addEventListener('click', () => {
                 if (!monacoEditor) return;
                 const yamlContent = monacoEditor.getValue();
@@ -335,6 +436,85 @@ tasks:
                     event.target.value = null;
                 }
             });
+
+            // --- Keyboard Shortcuts ---
+            document.addEventListener('keydown', function(event) {
+                if (event.ctrlKey || event.metaKey) { // metaKey for MacOS
+                    if (event.key === 's' || event.key === 'S') {
+                        event.preventDefault();
+                        saveToDiskButton.click();
+                    } else if (event.key === 'o' || event.key === 'O') {
+                        event.preventDefault();
+                        loadFileInput.click();
+                    }
+                }
+            });
+
+            // --- Resizer Logic ---
+            let isResizing = false;
+            let initialMouseX, initialYamlWidthPx, initialGanttWidthPx;
+
+            resizer.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isResizing = true;
+                initialMouseX = e.clientX;
+                initialYamlWidthPx = yamlPane.offsetWidth;
+                // initialGanttWidthPx = ganttPane.offsetWidth; // Not strictly needed if we recalculate
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+                // Add a class to body to prevent text selection during drag
+                document.body.style.userSelect = 'none';
+                document.body.style.pointerEvents = 'none'; // Prevent iframe/object interference
+            });
+
+            function handleMouseMove(e) {
+                if (!isResizing) return;
+
+                const dx = e.clientX - initialMouseX;
+                let newYamlWidthPx = initialYamlWidthPx + dx;
+
+                const containerWidthPx = mainContainer.offsetWidth;
+                const resizerWidthPx = resizer.offsetWidth;
+
+                // Constraints (e.g., min 20% width for each pane)
+                const minPaneWidthPx = containerWidthPx * 0.20;
+                const maxYamlWidthPx = containerWidthPx - minPaneWidthPx - resizerWidthPx;
+
+                newYamlWidthPx = Math.max(minPaneWidthPx, Math.min(newYamlWidthPx, maxYamlWidthPx));
+
+                const newYamlWidthPercent = (newYamlWidthPx / containerWidthPx) * 100;
+                const newGanttWidthPercent = 100 - newYamlWidthPercent - (resizerWidthPx / containerWidthPx * 100);
+
+                yamlPane.style.width = `${newYamlWidthPercent}%`;
+                ganttPane.style.width = `${newGanttWidthPercent}%`;
+
+                // Monaco editor should resize automatically due to automaticLayout: true
+                // If Frappe-Gantt needs manual refresh, it would go here, but can be slow.
+                // For now, rely on CSS reflow.
+            }
+
+            function handleMouseUp() {
+                if (!isResizing) return;
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+                document.body.style.userSelect = '';
+                document.body.style.pointerEvents = '';
+
+                // Save the new width to localStorage
+                const currentYamlWidthPercent = (yamlPane.offsetWidth / mainContainer.offsetWidth) * 100;
+                localStorage.setItem(LOCAL_STORAGE_KEY + '_yamlWidth', currentYamlWidthPercent.toFixed(2));
+
+
+                // Explicitly layout Monaco if needed, though automaticLayout should handle it.
+                if (monacoEditor) {
+                    monacoEditor.layout();
+                }
+                // Frappe-Gantt might also need a nudge if things look off after resize.
+                // A full re-render is heavy, so only if absolutely necessary.
+                // For now, observe if layout() on Monaco + CSS reflow is enough.
+            }
         });
     </script>
 </body>
