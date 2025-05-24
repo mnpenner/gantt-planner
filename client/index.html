@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YAML to Gantt Chart with Monaco</title>
     <style>
-        /* ... (Your existing CSS, no changes needed here for this fix) ... */
+        /* ... (Your CSS with height:100% on #gantt-chart-target and correct padding) ... */
         body {
             font-family: sans-serif;
             margin: 0;
@@ -45,7 +45,6 @@
         }
 
         .gantt-pane {
-            padding: 0;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -56,7 +55,6 @@
 
         .gantt-chart-header {
             padding: 15px;
-            padding-bottom: 0;
             flex-shrink: 0;
         }
 
@@ -68,13 +66,16 @@
             flex-grow: 1;
             overflow: auto;
             min-height: 0;
-            padding: 0 15px 15px 15px;
+            padding: 0;
         }
 
         #gantt-chart-target {
             height: 100%;
         }
 
+        .gantt-container {
+            height: 100%;
+        }
 
         .resizer {
             width: 10px;
@@ -97,7 +98,6 @@
             line-height: 0;
         }
 
-
         .yaml-pane h3 {
             flex-shrink: 0;
             margin-top: 0;
@@ -105,8 +105,7 @@
             color: #d4d4d4;
         }
 
-        .yaml-pane .file-controls,
-        .yaml-pane #error-display {
+        .yaml-pane .file-controls, .yaml-pane #error-display {
             flex-shrink: 0;
             margin-bottom: 10px;
         }
@@ -114,7 +113,6 @@
         .yaml-pane #error-display {
             margin-top: 0;
         }
-
 
         #monaco-editor-container {
             flex-grow: 1;
@@ -158,23 +156,53 @@
             white-space: pre-wrap;
         }
 
-        .gantt .bar-label { font-size: 12px; font-weight: 500; fill: #333; }
-        .gantt .bar-wrapper.active .bar { filter: brightness(130%); }
-        .gantt .bar-flight .bar { fill: #8ECAE6; }
-        .gantt .bar-flight .bar-label { fill: #023047; }
-        .gantt .bar-hotel .bar { fill: #219EBC; }
-        .gantt .bar-hotel .bar-label { fill: #fff; }
-        .gantt .bar-activity .bar { fill: #FFB703; }
-        .gantt .bar-activity-stay .bar { fill: #FB8500; }
-        .gantt .bar-activity-stay .bar-label { fill: #fff; }
-        .gantt .bar-buffer .bar { fill: #cccccc; stroke: #aeaeae; }
+        .gantt .bar-label {
+            font-size: 12px;
+            font-weight: 500;
+            fill: #333;
+        }
+
+        .gantt .bar-wrapper.active .bar {
+            filter: brightness(130%);
+        }
+
+        .gantt .bar-flight .bar {
+            fill: #8ECAE6;
+        }
+
+        .gantt .bar-flight .bar-label {
+            fill: #023047;
+        }
+
+        .gantt .bar-hotel .bar {
+            fill: #219EBC;
+        }
+
+        .gantt .bar-hotel .bar-label {
+            fill: #fff;
+        }
+
+        .gantt .bar-activity .bar {
+            fill: #FFB703;
+        }
+
+        .gantt .bar-activity-stay .bar {
+            fill: #FB8500;
+        }
+
+        .gantt .bar-activity-stay .bar-label {
+            fill: #fff;
+        }
+
+        .gantt .bar-buffer .bar {
+            fill: #cccccc;
+            stroke: #aeaeae;
+        }
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
 </head>
 <body>
-    <header>
-        <h1>YAML to Gantt Chart Live Preview</h1>
-    </header>
+    <header><h1>YAML to Gantt Chart Live Preview</h1></header>
     <div class="container" id="main-container">
         <div class="yaml-pane" id="yaml-pane">
             <h3>YAML Configuration:</h3>
@@ -188,26 +216,22 @@
         </div>
         <div class="resizer" id="resizer"></div>
         <div class="gantt-pane" id="gantt-pane">
-            <div class="gantt-chart-header">
-                <h3>Gantt Chart Preview:</h3>
-            </div>
+            <div class="gantt-chart-header"><h3>Gantt Chart Preview:</h3></div>
             <div id="gantt-chart-target-container">
                 <div id="gantt-chart-target"></div>
             </div>
         </div>
     </div>
 
-    <!-- Load Day.js and its plugin BEFORE other scripts that might depend on it or Monaco loader -->
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/customParseFormat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/duration.js"></script>
     <script>
-        // Ensure dayjs and its plugin are available globally before Monaco's loader runs.
-        // The plugin script typically extends dayjs automatically if dayjs is already global.
-        // If not, you might need to do:
-        if (window.dayjs && window.dayjs_plugin_customParseFormat) {
+        if(window.dayjs && window.dayjs_plugin_customParseFormat && window.dayjs_plugin_duration) {
             dayjs.extend(window.dayjs_plugin_customParseFormat);
+            dayjs.extend(window.dayjs_plugin_duration);
         } else {
-            console.error("Day.js or its CustomParseFormat plugin failed to load.");
+            console.error("Day.js or its plugins failed to load properly.");
         }
     </script>
 
@@ -216,8 +240,7 @@
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
     <script>
-        // --- Main Application Logic ---
-        const yamlPane = document.getElementById('yaml-pane');
+        const yamlPane = document.getElementById('yaml-pane'); /* ... other consts ... */
         const ganttPane = document.getElementById('gantt-pane');
         const resizer = document.getElementById('resizer');
         const ganttChartTargetContainer = document.getElementById('gantt-chart-target-container');
@@ -231,16 +254,15 @@
         let monacoEditor;
         let gantt;
         let debounceTimer;
-        const LOCAL_STORAGE_KEY = 'yamlGanttConfig'; // Consistent key
+        const LOCAL_STORAGE_KEY = 'yamlGanttConfig';
 
         let initialYamlPaneWidth = 25;
         const savedYamlPaneWidth = localStorage.getItem(LOCAL_STORAGE_KEY + '_yamlWidth');
         if(savedYamlPaneWidth) {
-            let parsedWidth = parseFloat(savedYamlPaneWidth);
-            initialYamlPaneWidth = Math.max(15, Math.min(parsedWidth, 85));
+            initialYamlPaneWidth = Math.max(15, Math.min(parseFloat(savedYamlPaneWidth), 85));
         }
 
-        function applyInitialWidths() {
+        function applyInitialWidths() { /* ... same ... */
             yamlPane.style.width = `${initialYamlPaneWidth}%`;
             const resizerWidthPx = resizer.offsetWidth;
             const containerWidthPx = mainContainer.offsetWidth;
@@ -253,144 +275,238 @@
         }
 
         const defaultYaml = `
-title: El Salvador Trip
+title: Feature Demo Trip
 viewMode: Day
 
 tasks:
-  - id: 'flightToSAL'
-    name: 'Flight: SFO to SAL'
-    start: '2025-07-26 2:20pm'
-    end: '2025-07-26 8:50PM'
-    custom_class: 'bar-flight'
-  - id: 'hyattStay'
-    name: 'City: Hyatt (3 nights)'
-    start: '2025-07-26'
-    end: '2025-07-28'
-    dependencies: 'flightToSAL'
-    custom_class: 'bar-hotel'
-  - id: 'losChorros'
-    name: 'Visit: Los Chorros'
-    start: '2025-07-29 9am'
-    end: '2025-07-29 5pm'
-    dependencies: 'hyattStay'
+  - id: 'planning'
+    name: 'Initial Planning'
+    start: '2025-09-01 9am'
+    duration: '2d' # Duration example
     custom_class: 'bar-activity'
+
+  - id: 'bookingFlights'
+    name: 'Book Flights'
+    after: 'planning' # After example
+    duration: '4h'    # Duration example
+    dependencies: 'planning' # Still good for arrows
+    custom_class: 'bar-milestone'
+
+  - id: 'packBags'
+    name: 'Pack Bags'
+    start: '2025-09-04 6pm'
+    end: '2025-09-04 9pm' # Normal start/end
+    dependencies: 'bookingFlights'
+    custom_class: 'bar-hotel'
+
+  - id: 'travelDay'
+    name: 'Travel Day'
+    after: 'packBags'
+    duration: '8h30m' # Mixed duration
+    dependencies: 'packBags'
+    custom_class: 'bar-flight'
 `;
 
-        function parseDateToGanttFormat(dateString, taskName, fieldName) {
-            if (!dateString) return null;
-            if (typeof dayjs === 'undefined') { // Guard against dayjs not loading
-                console.error("dayjs is not loaded. Cannot parse dates.");
-                return dateString; // Return original, will likely fail in Frappe
+        function parseRelaxedDate(dateString) {
+            if(!dateString) return null;
+            if(typeof dayjs === 'undefined') {
+                return null;
             }
-
             const formats = [
                 'YYYY-MM-DD h:mma', 'YYYY-MM-DD ha', 'YYYY-MM-DD H:mm', 'YYYY-MM-DD HH:mm',
                 'YYYY-MM-DD hh:mma', 'YYYY-MM-DD hha', 'YYYY-MM-DD h:mm A', 'YYYY-MM-DD h A',
                 'YYYY-MM-DD'
             ];
-            let parsedDate = dayjs(dateString, formats, true); // true for strict format matching
-
-            if (!parsedDate.isValid()) { // If strict matching fails, try flexible parsing
-                parsedDate = dayjs(dateString);
-            }
-
-            if (parsedDate.isValid()) {
-                return parsedDate.format('YYYY-MM-DD HH:mm:ss');
-            } else {
-                console.warn(`Could not parse ${fieldName} date "${dateString}" for task "${taskName || 'Unknown'}".`);
-                return dateString; // Return original if all parsing attempts fail
-            }
+            let djsDate = dayjs(dateString, formats, true);
+            if(!djsDate.isValid()) djsDate = dayjs(dateString);
+            return djsDate.isValid() ? djsDate : null;
         }
 
+        function parseDurationToDayjsDuration(durationStr) {
+            if(!durationStr || typeof durationStr !== 'string') return null;
+            if(typeof dayjs === 'undefined' || !dayjs.duration) {
+                return null;
+            }
+
+            let totalMilliseconds = 0;
+            const simpleDaysMatch = durationStr.match(/^(\d+)$/); // Just a number, assume days
+            const dayMatch = durationStr.match(/(\d+)\s*d/i);
+            const hourMatch = durationStr.match(/(\d+)\s*h/i);
+            const minuteMatch = durationStr.match(/(\d+)\s*m/i);
+
+            if(dayMatch) totalMilliseconds += parseInt(dayMatch[1]) * 24 * 60 * 60 * 1000;
+            if(hourMatch) totalMilliseconds += parseInt(hourMatch[1]) * 60 * 60 * 1000;
+            if(minuteMatch) totalMilliseconds += parseInt(minuteMatch[1]) * 60 * 1000;
+
+            if(totalMilliseconds === 0 && simpleDaysMatch) { // Handle "2" as "2d"
+                totalMilliseconds = parseInt(simpleDaysMatch[1]) * 24 * 60 * 60 * 1000;
+            }
+
+            return totalMilliseconds > 0 ? dayjs.duration(totalMilliseconds) : null;
+        }
+
+        function preprocessTasks(tasks, parsingErrors) {
+            const taskMap = new Map(tasks.map(t => [t.id, t]));
+            let processedTasks = JSON.parse(JSON.stringify(tasks)); // Deep clone
+
+            // Max iterations to prevent infinite loops with circular dependencies
+            let maxIterations = tasks.length * tasks.length;
+            let iterations = 0;
+            let resolvedThisPass;
+
+            do {
+                resolvedThisPass = false;
+                iterations++;
+                if(iterations > maxIterations) {
+                    parsingErrors.push("Could not resolve all 'after' dependencies, possible circular reference or missing ID.");
+                    break;
+                }
+
+                processedTasks.forEach(task => {
+                    // Process 'after' only if start is not yet defined by 'after'
+                    if(task.after && !task.calculated_start) {
+                        const prevTask = processedTasks.find(t => t.id === task.after);
+                        if(prevTask) {
+                            if(prevTask.calculated_end) { // If previous task's end is known
+                                task.start = prevTask.calculated_end; // Use the calculated end of prev task
+                                task.calculated_start = prevTask.calculated_end; // Mark as resolved
+                                resolvedThisPass = true;
+                            } else if(prevTask.end && !prevTask.duration && !prevTask.after) { // Prev task has fixed end
+                                const prevEndDate = parseRelaxedDate(prevTask.end);
+                                if(prevEndDate) {
+                                    // For 'after', typically start on the next day if prev is full day, or immediately if time specified
+                                    // Simple approach: start right after. Adjust if more specific logic needed (e.g., next business day)
+                                    task.start = prevEndDate.format('YYYY-MM-DD HH:mm:ss');
+                                    task.calculated_start = task.start;
+                                    resolvedThisPass = true;
+                                }
+                            }
+                            // If prevTask itself depends on 'after' or 'duration', it will be resolved in later iterations
+                        } else {
+                            parsingErrors.push(`Task "${task.name}" 'after' references non-existent task ID "${task.after}".`);
+                            task.start = dayjs().format('YYYY-MM-DD HH:mm:ss'); // Fallback to now to prevent total failure
+                            task.calculated_start = task.start; // Avoid reprocessing this error
+                        }
+                    }
+
+                    // Process 'duration' if start is known and end is not
+                    if(task.start && task.duration && !task.calculated_end) {
+                        const startDate = parseRelaxedDate(task.start);
+                        if(startDate) {
+                            const durationObj = parseDurationToDayjsDuration(task.duration);
+                            if(durationObj) {
+                                task.end = startDate.add(durationObj).format('YYYY-MM-DD HH:mm:ss');
+                                task.calculated_end = task.end; // Mark as resolved
+                                if(task.calculated_start && !resolvedThisPass && task.after) {
+                                    // If this task's start was set by an 'after', and now its end is calculated,
+                                    // it might enable other tasks that depend on this one.
+                                    // However, main 'after' loop should handle this.
+                                }
+                                resolvedThisPass = true;
+                            } else {
+                                parsingErrors.push(`Task "${task.name}" has invalid duration "${task.duration}".`);
+                                task.end = startDate.add(1, 'day').format('YYYY-MM-DD HH:mm:ss'); // Fallback duration
+                                task.calculated_end = task.end;
+                            }
+                        } else if(!task.after) { // Only error if start was not dependent on 'after'
+                            parsingErrors.push(`Task "${task.name}" has duration but invalid start date "${task.start}".`);
+                            // Set a fallback end to prevent further errors if possible
+                            task.end = dayjs().add(1, 'day').format('YYYY-MM-DD HH:mm:ss');
+                            task.calculated_end = task.end;
+                        }
+                    } else if(task.start && task.end && !task.calculated_end) {
+                        // If both start and end are provided, mark end as "calculated" to prevent re-processing
+                        task.calculated_end = parseRelaxedDate(task.end)?.format('YYYY-MM-DD HH:mm:ss') || task.end;
+                    }
+                });
+            } while(resolvedThisPass && iterations <= maxIterations);
+
+            // Final pass to format dates for Frappe Gantt
+            return processedTasks.map(task => {
+                if(!task.id || !task.name) {
+                    parsingErrors.push(`A task is missing ID or Name.`);
+                    return null;
+                }
+                const finalStartDate = parseRelaxedDate(task.start);
+                const finalEndDate = parseRelaxedDate(task.end);
+
+                if(!finalStartDate || !finalStartDate.isValid()) {
+                    parsingErrors.push(`Task "${task.name}" has unresolved/invalid start date: "${task.start}".`);
+                    return null;
+                }
+                if(!finalEndDate || !finalEndDate.isValid()) {
+                    parsingErrors.push(`Task "${task.name}" has unresolved/invalid end date: "${task.end}".`);
+                    return null;
+                }
+                // Clean up temporary calculation fields
+                delete task.calculated_start;
+                delete task.calculated_end;
+
+                return {
+                    ...task, // Spread original fields like id, name, custom_class, dependencies
+                    start: finalStartDate.format('YYYY-MM-DD HH:mm:ss'),
+                    end: finalEndDate.format('YYYY-MM-DD HH:mm:ss'),
+                };
+            }).filter(t => t !== null);
+        }
+
+
         function renderGantt(yamlString) {
-            // ... (renderGantt function as in your provided code, using the parseDateToGanttFormat above)
             errorDisplay.style.display = 'none';
             errorDisplay.textContent = '';
             let parsingErrors = [];
-
             try {
                 const config = jsyaml.load(yamlString);
                 if(!config || typeof config !== 'object') throw new Error("YAML content is empty or not an object.");
-                const tasks = config.tasks || [];
+
+                let tasksFromYaml = config.tasks || [];
                 const viewMode = config.viewMode || 'Day';
                 const chartTitle = config.title || 'Gantt Chart';
 
                 const headerTitle = document.querySelector('header h1');
                 if(headerTitle) headerTitle.textContent = chartTitle + " Live Preview";
-                if(!Array.isArray(tasks)) throw new Error("'tasks' property must be an array.");
+                if(!Array.isArray(tasksFromYaml)) throw new Error("'tasks' property must be an array.");
 
-                const formattedTasks = tasks.map(task => {
-                    if(!task.id || !task.name || !task.start || !task.end) {
-                        parsingErrors.push(`Task "${task.name || task.id || 'Unknown'}" is missing required fields (id, name, start, end).`);
-                        return null;
-                    }
+                // Preprocess tasks for 'after' and 'duration'
+                const processedTasks = preprocessTasks(tasksFromYaml, parsingErrors);
 
-                    const startDateStr = parseDateToGanttFormat(task.start, task.name, 'start');
-                    const endDateStr = parseDateToGanttFormat(task.end, task.name, 'end');
-
-                    // Check validity again after our parsing attempt.
-                    // Dayjs object might be valid but formatted string could be "Invalid Date" if original was truly bad.
-                    // Or, if our parseDateToGanttFormat returned the original bad string.
-                    if (!dayjs(startDateStr).isValid() || startDateStr === task.start && !dayjs(task.start).isValid() ) {
-                        parsingErrors.push(`Invalid start date for task "${task.name}": "${task.start}"`);
-                        return null;
-                    }
-                    if (!dayjs(endDateStr).isValid() || endDateStr === task.end && !dayjs(task.end).isValid() ) {
-                        parsingErrors.push(`Invalid end date for task "${task.name}": "${task.end}"`);
-                        return null;
-                    }
-
-                    return {
-                        id: String(task.id), name: String(task.name),
-                        start: startDateStr,
-                        end: endDateStr,
-                        dependencies: task.dependencies || '', custom_class: task.custom_class || ''
-                    };
-                }).filter(task => task !== null);
-
-                if (parsingErrors.length > 0) {
-                    errorDisplay.textContent = "Data Issues:\n" + parsingErrors.join("\n");
+                if(parsingErrors.length > 0) {
+                    errorDisplay.textContent = "Configuration Issues:\n" + parsingErrors.join("\n");
                     errorDisplay.style.display = 'block';
                 }
 
                 ganttChartTargetElement.innerHTML = '';
-                if(formattedTasks.length === 0) { // This condition handles if ALL tasks were invalid or no tasks
+                if(processedTasks.length === 0) {
                     gantt = null;
                     const noTaskMsg = document.createElement('p');
-                    if (tasks.length > 0 && parsingErrors.length > 0) {
+                    if(tasksFromYaml.length > 0 && parsingErrors.length > 0) {
                         noTaskMsg.textContent = "No valid tasks to display due to errors. Check messages.";
-                        noTaskMsg.style.color = "orange";
-                    } else if (tasks.length > 0) {
-                        noTaskMsg.textContent = "No valid tasks found after filtering.";
-                        noTaskMsg.style.color = "orange";
-                    }
-                    else {
+                    } else if(tasksFromYaml.length > 0) {
+                        noTaskMsg.textContent = "No tasks resulted from the configuration.";
+                    } else {
                         noTaskMsg.textContent = "No tasks defined in YAML.";
-                        noTaskMsg.style.color = "#666";
                     }
+                    noTaskMsg.style.color = (tasksFromYaml.length > 0 && parsingErrors.length > 0) ? "orange" : "#666";
                     noTaskMsg.style.textAlign = "center";
                     noTaskMsg.style.paddingTop = "20px";
                     ganttChartTargetElement.appendChild(noTaskMsg);
                     return;
                 }
 
-                gantt = new Gantt("#gantt-chart-target", formattedTasks, {
+                gantt = new Gantt("#gantt-chart-target", processedTasks, { /* ... Frappe options ... */
                     header_height: 50, column_width: 30, step: 24,
                     view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
-                    bar_height: 20, bar_corner_radius: 3, arrow_curve: 5, padding: 18,
+                    bar_height: 20, bar_corner_radius: 3, arrow_curve: 5,
+                    padding: 18,
                     view_mode: viewMode, date_format: 'YYYY-MM-DD HH:mm:ss',
                     language: 'en',
                     custom_popup_html: function(task) {
                         const startDate = task._start ? dayjs(task._start).format('MM/DD/YYYY h:mm A') : "Invalid";
                         const endDate = task._end ? dayjs(task._end).format('MM/DD/YYYY h:mm A') : "Invalid";
-                        return `<div style="padding:10px; font-size:12px; color: #333;">
-                                    <h5 style="margin:0 0 5px 0;">${task.name}</h5>
-                                    <p style="margin:3px 0;">Start: ${startDate}</p>
-                                    <p style="margin:3px 0;">End: ${endDate}</p>
-                                </div>`;
+                        return `<div style="padding:10px; font-size:12px; color:#333;"><h5>${task.name}</h5><p style="margin:3px 0;">Start: ${startDate}</p><p style="margin:3px 0;">End: ${endDate}</p></div>`;
                     }
                 });
-            } catch(e) {
+            } catch(e) { /* ... error handling ... */
                 console.error("Error processing YAML or rendering Gantt:", e);
                 errorDisplay.textContent = `Error: ${e.message}\n${e.stack ? e.stack.split('\n').slice(0, 3).join('\n') : ''}`;
                 errorDisplay.style.display = 'block';
@@ -399,16 +515,11 @@ tasks:
             }
         }
 
+        // --- Monaco, Resizer, File Ops, Keyboard Shortcuts (Setup) ---
         require.config({paths: {'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'}});
-        let workerProxy = URL.createObjectURL(new Blob([`
-            self.MonacoEnvironment = {
-                baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/'
-            };
-            importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');
-        `], {type: 'text/javascript'})); // Renamed 'proxy' to 'workerProxy' for clarity
-        window.MonacoEnvironment = {getWorkerUrl: () => workerProxy}; // Use the renamed variable
-
-        require(['vs/editor/editor.main'], function() {
+        let workerProxy = URL.createObjectURL(new Blob([`self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`], {type: 'text/javascript'}));
+        window.MonacoEnvironment = {getWorkerUrl: () => workerProxy};
+        require(['vs/editor/editor.main'], function() { /* ... (same as before, with applyInitialWidths call) ... */
             applyInitialWidths();
             const savedYaml = localStorage.getItem(LOCAL_STORAGE_KEY) || defaultYaml.trim();
             monacoEditor = monaco.editor.create(monacoEditorContainer, {
@@ -422,18 +533,20 @@ tasks:
                 debounceTimer = setTimeout(() => {
                     const currentYaml = monacoEditor.getValue();
                     renderGantt(currentYaml);
-                    try { localStorage.setItem(LOCAL_STORAGE_KEY, currentYaml); }
-                    catch(e) {
+                    try {
+                        localStorage.setItem(LOCAL_STORAGE_KEY, currentYaml);
+                    } catch(e) { /* ... localStorage error handling ... */
                         console.warn("LocalStorage save error:", e);
                         errorDisplay.textContent = "Warning: Could not save to local storage.";
                         errorDisplay.style.color = "#ffcc00";
                         errorDisplay.style.display = 'block';
-                        setTimeout(() => { errorDisplay.style.display = 'none'; }, 5000);
+                        setTimeout(() => {
+                            errorDisplay.style.display = 'none';
+                        }, 5000);
                     }
                 }, 700);
             });
-
-            saveToDiskButton.addEventListener('click', () => {
+            saveToDiskButton.addEventListener('click', () => { /* ... same save ... */
                 if(!monacoEditor) return;
                 const yamlContent = monacoEditor.getValue();
                 const blob = new Blob([yamlContent], {type: 'text/yaml;charset=utf-8;'});
@@ -446,8 +559,7 @@ tasks:
                 document.body.removeChild(link);
                 URL.revokeObjectURL(objectURL);
             });
-
-            loadFileInput.addEventListener('change', (event) => {
+            loadFileInput.addEventListener('change', (event) => { /* ... same load ... */
                 if(!monacoEditor) return;
                 const file = event.target.files[0];
                 if(file) {
@@ -464,8 +576,7 @@ tasks:
                     event.target.value = null;
                 }
             });
-
-            document.addEventListener('keydown', function(event) {
+            document.addEventListener('keydown', function(event) { /* ... same shortcuts ... */
                 if(event.ctrlKey || event.metaKey) {
                     if(event.key === 's' || event.key === 'S') {
                         event.preventDefault();
@@ -476,42 +587,46 @@ tasks:
                     }
                 }
             });
-
-            let isResizing = false;
-            let initialMouseX;
-            let initialYamlWidthPxAtDragStart;
-
-            resizer.addEventListener('mousedown', function(e) {
-                e.preventDefault(); isResizing = true; initialMouseX = e.clientX;
+            let isResizing = false, initialMouseX, initialYamlWidthPxAtDragStart; // Resizer vars
+            resizer.addEventListener('mousedown', function(e) { /* ... same mousedown ... */
+                e.preventDefault();
+                isResizing = true;
+                initialMouseX = e.clientX;
                 initialYamlWidthPxAtDragStart = yamlPane.offsetWidth;
                 document.addEventListener('mousemove', handleMouseMove);
                 document.addEventListener('mouseup', handleMouseUp);
-                document.body.style.userSelect = 'none'; document.body.style.pointerEvents = 'none';
+                document.body.style.userSelect = 'none';
+                document.body.style.pointerEvents = 'none';
             });
-            function handleMouseMove(e) {
+
+            function handleMouseMove(e) { /* ... same mousemove ... */
                 if(!isResizing) return;
                 const dx = e.clientX - initialMouseX;
                 let newYamlWidthPx = initialYamlWidthPxAtDragStart + dx;
-                const containerWidthPx = mainContainer.offsetWidth;
-                const resizerWidthPx = resizer.offsetWidth;
-                const minPaneWidthPx = containerWidthPx * 0.15;
-                const maxPaneWidthPx = containerWidthPx * 0.85;
+                const containerWidthPx = mainContainer.offsetWidth, resizerWidthPx = resizer.offsetWidth;
+                const minPaneWidthPx = containerWidthPx * 0.15, maxPaneWidthPx = containerWidthPx * 0.85;
                 newYamlWidthPx = Math.max(minPaneWidthPx, Math.min(newYamlWidthPx, maxPaneWidthPx - resizerWidthPx));
                 const newYamlWidthPercent = (newYamlWidthPx / containerWidthPx) * 100;
                 const newGanttWidthPercent = 100 - newYamlWidthPercent - (resizerWidthPx / containerWidthPx * 100);
                 yamlPane.style.width = `${newYamlWidthPercent}%`;
                 ganttPane.style.width = `${newGanttWidthPercent}%`;
-                if(monacoEditor) { monacoEditor.layout(); }
+                if(monacoEditor) {
+                    monacoEditor.layout();
+                }
             }
-            function handleMouseUp() {
+
+            function handleMouseUp() { /* ... same mouseup ... */
                 if(!isResizing) return;
                 isResizing = false;
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('mouseup', handleMouseUp);
-                document.body.style.userSelect = ''; document.body.style.pointerEvents = '';
+                document.body.style.userSelect = '';
+                document.body.style.pointerEvents = '';
                 const currentYamlWidthPercent = (yamlPane.offsetWidth / mainContainer.offsetWidth) * 100;
                 localStorage.setItem(LOCAL_STORAGE_KEY + '_yamlWidth', currentYamlWidthPercent.toFixed(2));
-                if(monacoEditor) { monacoEditor.layout(); }
+                if(monacoEditor) {
+                    monacoEditor.layout();
+                }
             }
         });
     </script>
