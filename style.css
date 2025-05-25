@@ -1,0 +1,164 @@
+/* style.css */
+@layer base, frappe, custom;
+
+@layer base {
+    body {
+        font-family: sans-serif;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh; /* Fixed viewport height */
+        background-color: #f0f0f0;
+        overflow: hidden; /* Body itself should not scroll */
+    }
+
+    header {
+        background-color: #333;
+        color: white;
+        padding: 5px 20px;
+        text-align: center;
+        flex-shrink: 0; /* Header takes its natural height */
+    }
+
+    header h1 { margin: 0; }
+
+    .container { /* This is #main-container */
+        display: flex; /* It's a row flex container */
+        flex-grow: 1; /* Takes all remaining vertical space from body */
+        overflow: hidden; /* This container should not scroll */
+    }
+
+    /* YAML Pane */
+    .yaml-pane {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* Monaco handles its own scrolling */
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        /* width is set by JS */
+    }
+
+    .yaml-pane .yaml-pane-header-controls {
+        padding: 15px;
+        padding-bottom: 10px;
+        flex-shrink: 0;
+    }
+
+    .yaml-pane h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        color: #d4d4d4;
+    }
+
+    .yaml-pane #error-display {
+        flex-shrink: 0;
+        margin: 0 15px 10px 15px;
+    }
+
+    #monaco-editor-container {
+        flex-grow: 1; /* Takes remaining space in .yaml-pane */
+        min-height: 0; /* Allows Monaco editor to scroll within its bounds */
+    }
+
+    /* Resizer */
+    .resizer {
+        width: 10px;
+        background-color: #5f5f5f;
+        cursor: col-resize;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .resizer:hover { background-color: #777777; }
+    .resizer::before { content: '⋮'; color: #cccccc; font-size: 12px; line-height: 0; }
+
+
+    /* File Controls */
+    .file-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .file-controls button, .file-controls label {
+        background-color: #007acc;
+        color: white;
+        padding: 8px 15px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 14px;
+        text-align: center;
+        transition: background-color 0.2s ease;
+    }
+    .file-controls button:hover, .file-controls label:hover { background-color: #005a9e; }
+    #load-file-input { display: none; }
+
+    /* Error Message */
+    .error-message {
+        color: #ff8a80;
+        background-color: #2c0b08;
+        border: 1px solid #ff8a80;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: 'Courier New', Courier, monospace;
+        white-space: pre-wrap;
+    }
+
+    /* Gantt Pane */
+    .gantt-pane {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* This pane itself should not scroll */
+        background-color: #252526;
+        color: #d4d4d4;
+        flex: 1; /* Makes it take available width in #main-container */
+        position: relative;
+    }
+
+    .gantt-pane .gantt-chart-header {
+        padding: 15px;
+        flex: 0 0 auto; /* Header takes its natural height, doesn't grow/shrink */
+    }
+
+    .gantt-pane h3 { margin: 0; color: #d4d4d4; }
+
+    #gantt-chart-target-container {
+        flex: 1 1 auto;    /* Takes all remaining vertical space in .gantt-pane */
+        min-height: 0;     /* Allows its children to correctly use height: 100% */
+        overflow: hidden;  /* THIS MUST NOT SCROLL. We want its grandchild (.gantt-container) to scroll. */
+        position: relative;
+    }
+
+    #gantt-chart-target {
+        height: 100%; /* Takes full height of #gantt-chart-target-container */
+        width: 100%;
+        /* This div will contain Frappe's .gantt-container. It should not scroll. */
+        position: relative; /* Context for child % heights */
+    }
+}
+
+@layer custom {
+    /*
+      Target Frappe Gantt's .gantt-container when it's a child of our #gantt-chart-target.
+      Force its height to be 100% of its parent (#gantt-chart-target), overriding Frappe's inline pixel height.
+      This allows Frappe's own `overflow: auto` on .gantt-container to manage the vertical scroll
+      because the SVG inside it will be taller than this 100% height.
+    */
+    #gantt-chart-target > .gantt-container {
+        height: 100% !important;
+        width: 100% !important; /* Ensure it also respects parent width for horizontal scroll calc */
+        box-sizing: border-box; /* Good practice if padding/border are involved */
+    }
+
+    /* Ensure the SVG itself doesn't try to scroll or clip in weird ways */
+    #gantt-chart-target .gantt-container > svg.gantt {
+        display: block; /* Consistent block layout */
+        /* Height and width are set by Frappe JS to large pixel values.
+           The parent .gantt-container now has a constrained height (100%) and overflow:auto,
+           so it will correctly scroll this large SVG.
+        */
+    }
+}
