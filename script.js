@@ -554,8 +554,8 @@ function renderGantt(yamlString) {
             let barLeftPx = offsetDaysFractional * DAY_COLUMN_WIDTH_PX; // Uses global
             let barWidthPx = durationDaysFractional * DAY_COLUMN_WIDTH_PX; // Uses global
 
-            const formattedStartTime = taskStart.format('dddd, MMM D, YYYY h:mma');
-            const formattedEndTime = taskEnd.format('dddd, MMM D, YYYY h:mma');
+            const formattedStartTime = taskStart.format('ddd, MMM D, YYYY @ h:mma');
+            const formattedEndTime = taskEnd.format('ddd, MMM D, YYYY @ h:mma');
 
             const formattedDuration = formatDuration(durationMilliseconds);
 
