@@ -27,11 +27,32 @@ let debounceTimer;
 const LOCAL_STORAGE_KEY = 'yamlGanttConfig';
 
 // --- Resizing constants ---
-const LABEL_COLUMN_WIDTH_PX = 240;   // CHANGED: Increased label column width
-const DAY_COLUMN_WIDTH_PX = 288;
+const LABEL_COLUMN_WIDTH_PX = 240;
 const ROW_HEIGHT_PX = 28;
 const BAR_HEIGHT_PX = 20;
 const MILESTONE_WIDTH_PX = 12;
+
+// --- Zoom constants & variable for Day Column Width ---
+const DEFAULT_DAY_COLUMN_WIDTH_PX = 288;
+const MIN_DAY_COLUMN_WIDTH_PX = 40;   // Minimum width for a day column
+const MAX_DAY_COLUMN_WIDTH_PX = 1000; // Maximum width for a day column
+const ZOOM_STEP_PX = 24;              // Amount to change per scroll tick
+const LOCAL_STORAGE_DAY_WIDTH_KEY = 'ganttDayColumnWidth';
+
+let DAY_COLUMN_WIDTH_PX;
+const savedDayColumnWidth = localStorage.getItem(LOCAL_STORAGE_DAY_WIDTH_KEY);
+if (savedDayColumnWidth !== null) {
+    DAY_COLUMN_WIDTH_PX = parseInt(savedDayColumnWidth, 10);
+    if (isNaN(DAY_COLUMN_WIDTH_PX)) {
+        DAY_COLUMN_WIDTH_PX = DEFAULT_DAY_COLUMN_WIDTH_PX;
+    } else {
+        // Clamp the loaded value to be within defined bounds
+        DAY_COLUMN_WIDTH_PX = Math.max(MIN_DAY_COLUMN_WIDTH_PX, Math.min(DAY_COLUMN_WIDTH_PX, MAX_DAY_COLUMN_WIDTH_PX));
+    }
+} else {
+    DAY_COLUMN_WIDTH_PX = DEFAULT_DAY_COLUMN_WIDTH_PX;
+}
+
 
 let initialYamlPaneWidth = 35;
 const savedYamlPaneWidth = localStorage.getItem(LOCAL_STORAGE_KEY + '_yamlWidth');
@@ -290,7 +311,7 @@ function preprocessTasks(tasks, parsingErrors) {
 }
 
 function createTimelineHeader(overallMinDate, overallMaxDate, viewMode, totalPixelWidth) {
-    // ... (no changes in this function)
+    // ... (no changes in this function, it will use the global DAY_COLUMN_WIDTH_PX)
     const headerContainer = document.createElement('div');
     headerContainer.className = 'gantt-html-timeline-header-container';
     headerContainer.style.height = `${ROW_HEIGHT_PX * 2}px`;
@@ -322,7 +343,7 @@ function createTimelineHeader(overallMinDate, overallMaxDate, viewMode, totalPix
     while (currentDate.isBefore(projectTimelineEndDate) || currentDate.isSame(projectTimelineEndDate, 'day')) {
         const dayTick = document.createElement('div');
         dayTick.className = 'gantt-html-tick';
-        dayTick.style.width = `${DAY_COLUMN_WIDTH_PX}px`;
+        dayTick.style.width = `${DAY_COLUMN_WIDTH_PX}px`; // Uses global DAY_COLUMN_WIDTH_PX
         dayTick.textContent = currentDate.format('D');
 
         const dayIndexForStripe = currentDate.diff(projectStartDateForDiff, 'days');
@@ -344,11 +365,11 @@ function createTimelineHeader(overallMinDate, overallMaxDate, viewMode, totalPix
                 }
 
                 const daysInMonthSpan = endOfMonthInView.diff(startOfMonthInView, 'days') + 1;
-                monthTick.style.width = `${daysInMonthSpan * DAY_COLUMN_WIDTH_PX}px`;
+                monthTick.style.width = `${daysInMonthSpan * DAY_COLUMN_WIDTH_PX}px`; // Uses global
                 monthTick.textContent = currentDate.format('MMM YYYY');
                 timelineTicksMajor.appendChild(monthTick);
             }
-        } else {
+        } else { // Day view mode default for major ticks
             if (currentDate.isoWeek() !== currentWeek || firstDayInTimelineHeaderLoop) {
                 currentWeek = currentDate.isoWeek();
                 const weekTick = document.createElement('div');
@@ -361,7 +382,7 @@ function createTimelineHeader(overallMinDate, overallMaxDate, viewMode, totalPix
                 }
 
                 const daysInWeekSpan = endOfWeekInView.diff(startOfWeekInView, 'days') + 1;
-                weekTick.style.width = `${daysInWeekSpan * DAY_COLUMN_WIDTH_PX}px`;
+                weekTick.style.width = `${daysInWeekSpan * DAY_COLUMN_WIDTH_PX}px`; // Uses global
                 weekTick.textContent = `W${currentDate.isoWeek()}`;
                 timelineTicksMajor.appendChild(weekTick);
             }
@@ -378,6 +399,7 @@ function createTimelineHeader(overallMinDate, overallMaxDate, viewMode, totalPix
 }
 
 function formatDuration(durationMilliseconds) {
+    // ... (no changes in this function)
     if (durationMilliseconds < 0) durationMilliseconds = 0;
     const totalMinutes = Math.floor(durationMilliseconds / (1000 * 60));
     const totalHours = Math.floor(totalMinutes / 60);
@@ -388,10 +410,10 @@ function formatDuration(durationMilliseconds) {
         const minutes = totalMinutes % 60;
         let durationStr = "";
         if (hours > 0) durationStr += `${hours}h `;
-        if (minutes > 0 || (hours === 0 && minutes === 0 && durationMilliseconds > 0) || (hours === 0 && minutes === 0 && durationMilliseconds === 0 && totalMinutes === 0)) { // show 0m if no hours and 0 minutes
+        if (minutes > 0 || (hours === 0 && minutes === 0 && durationMilliseconds > 0) || (hours === 0 && minutes === 0 && durationMilliseconds === 0 && totalMinutes === 0)) {
             durationStr += `${minutes}m`;
         }
-        return durationStr.trim() || "0m"; // Ensure "0m" if completely zero
+        return durationStr.trim() || "0m";
     } else {
         const hours = totalHours % 24;
         let durationStr = `${days}d`;
@@ -454,11 +476,9 @@ function renderGantt(yamlString) {
         });
 
         if (overallMinDate && overallMaxDate && overallMinDate.isSame(overallMaxDate, 'day') && dayjs(overallMaxDate).diff(overallMinDate, 'ms') === 0) {
-            // If it's a single point in time (like a single milestone), expand by one day for visual rendering
             overallMaxDate = dayjs(overallMinDate).add(1, 'day');
         } else if (overallMinDate && overallMaxDate && overallMinDate.isSame(overallMaxDate, 'day')) {
-            // If start and end are on the same day but different times, ensure timeline still covers at least one full day block
-            overallMaxDate = dayjs(overallMinDate).endOf('day'); // Ensure the max date covers the full day if tasks are within it
+            overallMaxDate = dayjs(overallMinDate).endOf('day');
         }
 
 
@@ -468,14 +488,13 @@ function renderGantt(yamlString) {
         }
 
         const viewableTimelineStartDate = dayjs(overallMinDate).startOf('day');
-        // Ensure the timeline end date covers the entirety of the last day tasks might touch
         const viewableTimelineEndDate = dayjs(overallMaxDate).isSame(dayjs(overallMaxDate).startOf('day')) && dayjs(overallMaxDate).diff(overallMinDate,'ms') !== 0 ?
-            dayjs(overallMaxDate).subtract(1, 'millisecond').startOf('day') : // If overallMax is exactly start of a day (and not same as min)
+            dayjs(overallMaxDate).subtract(1, 'millisecond').startOf('day') :
             dayjs(overallMaxDate).startOf('day');
 
 
         const numTimelineDays = viewableTimelineEndDate.diff(viewableTimelineStartDate, 'days') + 1;
-        const totalPixelWidth = numTimelineDays * DAY_COLUMN_WIDTH_PX;
+        const totalPixelWidth = numTimelineDays * DAY_COLUMN_WIDTH_PX; // Uses global DAY_COLUMN_WIDTH_PX
 
         const ganttTable = document.createElement('div');
         ganttTable.className = 'gantt-html-table';
@@ -505,9 +524,9 @@ function renderGantt(yamlString) {
                 const dayStripe = document.createElement('div');
                 dayStripe.classList.add(i % 2 === 0 ? 'gantt-day-stripe-even' : 'gantt-day-stripe-odd');
                 dayStripe.style.position = 'absolute';
-                dayStripe.style.left = `${i * DAY_COLUMN_WIDTH_PX}px`;
+                dayStripe.style.left = `${i * DAY_COLUMN_WIDTH_PX}px`; // Uses global
                 dayStripe.style.top = '0';
-                dayStripe.style.width = `${DAY_COLUMN_WIDTH_PX}px`;
+                dayStripe.style.width = `${DAY_COLUMN_WIDTH_PX}px`; // Uses global
                 dayStripe.style.height = '100%';
                 taskScheduleCell.appendChild(dayStripe);
             }
@@ -532,21 +551,20 @@ function renderGantt(yamlString) {
             const offsetDaysFractional = offsetMilliseconds / (24 * 60 * 60 * 1000);
             const durationDaysFractional = durationMilliseconds / (24 * 60 * 60 * 1000);
 
-            let barLeftPx = offsetDaysFractional * DAY_COLUMN_WIDTH_PX;
-            let barWidthPx = durationDaysFractional * DAY_COLUMN_WIDTH_PX;
+            let barLeftPx = offsetDaysFractional * DAY_COLUMN_WIDTH_PX; // Uses global
+            let barWidthPx = durationDaysFractional * DAY_COLUMN_WIDTH_PX; // Uses global
 
-            // Format times for title
-            const formattedStartTime = taskStart.format('MMM D, YYYY h:mma'); // CHANGED: 12hr format
-            const formattedEndTime = taskEnd.format('MMM D, YYYY h:mma');   // CHANGED: 12hr format
-            const formattedDuration = formatDuration(durationMilliseconds); // CHANGED: Use new helper
+            const formattedStartTime = taskStart.format('MMM D, YYYY h:mma');
+            const formattedEndTime = taskEnd.format('MMM D, YYYY h:mma');
+            const formattedDuration = formatDuration(durationMilliseconds);
 
             if (durationMilliseconds <= 0) { // Milestone
                 taskBar.classList.add('gantt-milestone');
                 barWidthPx = MILESTONE_WIDTH_PX;
                 // Center milestone: start of its time + half day width - half milestone width
-                barLeftPx = (offsetDaysFractional * DAY_COLUMN_WIDTH_PX) - (MILESTONE_WIDTH_PX / 2);
-                if(DAY_COLUMN_WIDTH_PX > MILESTONE_WIDTH_PX) { // Only add if day col is wider
-                    barLeftPx += DAY_COLUMN_WIDTH_PX * (taskStart.hour() / 24 + taskStart.minute() / (24*60));
+                barLeftPx = (offsetDaysFractional * DAY_COLUMN_WIDTH_PX) - (MILESTONE_WIDTH_PX / 2); // Uses global
+                if(DAY_COLUMN_WIDTH_PX > MILESTONE_WIDTH_PX) {
+                    barLeftPx += DAY_COLUMN_WIDTH_PX * (taskStart.hour() / 24 + taskStart.minute() / (24*60)); // Uses global
                 }
                 taskBar.title = `${task.name} (Milestone)\n${formattedStartTime}`;
             } else {
@@ -554,7 +572,7 @@ function renderGantt(yamlString) {
             }
 
             taskBar.style.left = `${Math.max(0, barLeftPx)}px`;
-            taskBar.style.width = `${Math.max(2, barWidthPx)}px`; // Min 2px width for visibility
+            taskBar.style.width = `${Math.max(2, barWidthPx)}px`;
 
             taskScheduleCell.appendChild(taskBar);
             taskRow.appendChild(taskLabel);
@@ -596,7 +614,7 @@ require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45
 let workerProxy = URL.createObjectURL(new Blob([`self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`], { type: 'text/javascript' }));
 window.MonacoEnvironment = { getWorkerUrl: () => workerProxy };
 
-require(['vs/editor/editor.main'], function () { /* ... (no changes to this block of code) ... */
+require(['vs/editor/editor.main'], function () {
     applyInitialWidths();
     let initialContent;
 
@@ -621,7 +639,7 @@ require(['vs/editor/editor.main'], function () { /* ... (no changes to this bloc
         automaticLayout: true, minimap: { enabled: false }, wordWrap: 'on',
         scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 }
     });
-    renderGantt(monacoEditor.getValue());
+    renderGantt(monacoEditor.getValue()); // Initial render
 
     monacoEditor.onDidChangeModelContent(() => {
         clearTimeout(debounceTimer);
@@ -711,6 +729,7 @@ require(['vs/editor/editor.main'], function () { /* ... (no changes to this bloc
         }
     });
 
+    // --- Resizer Logic ---
     let isResizing = false;
     let dragStartX;
     let initialLeftWidth;
@@ -751,5 +770,35 @@ require(['vs/editor/editor.main'], function () { /* ... (no changes to this bloc
         const currentYamlWidthPercent = (yamlPane.offsetWidth / mainContainer.offsetWidth) * 100;
         localStorage.setItem(LOCAL_STORAGE_KEY + '_yamlWidth', currentYamlWidthPercent.toFixed(2));
         if (monacoEditor) monacoEditor.layout();
+    }
+
+    // --- Gantt Chart Zoom Logic (Ctrl + Mousewheel) ---
+    if (ganttPane) {
+        ganttPane.addEventListener('wheel', (event) => {
+            if (event.ctrlKey) {
+                event.preventDefault(); // Prevent default browser zoom/scroll
+
+                if (!monacoEditor) return; // Should not happen if listener is added after editor init
+                const currentYaml = monacoEditor.getValue();
+                if (!currentYaml && (config.tasks || []).length === 0 ) return; // Don't zoom if editor is effectively empty or no tasks
+
+                if (event.deltaY < 0) { // Zoom in (scroll up)
+                    DAY_COLUMN_WIDTH_PX += ZOOM_STEP_PX;
+                } else { // Zoom out (scroll down)
+                    DAY_COLUMN_WIDTH_PX -= ZOOM_STEP_PX;
+                }
+
+                // Clamp the value
+                DAY_COLUMN_WIDTH_PX = Math.max(MIN_DAY_COLUMN_WIDTH_PX, Math.min(DAY_COLUMN_WIDTH_PX, MAX_DAY_COLUMN_WIDTH_PX));
+
+                // Save to localStorage
+                localStorage.setItem(LOCAL_STORAGE_DAY_WIDTH_KEY, DAY_COLUMN_WIDTH_PX.toString());
+
+                // Re-render the Gantt chart with the current YAML and new day width
+                renderGantt(currentYaml);
+            }
+        }, { passive: false }); // passive: false is important for preventDefault to work reliably
+    } else {
+        console.error("Gantt pane not found, zoom functionality will not be available.");
     }
 });
