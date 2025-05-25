@@ -1,53 +1,54 @@
 /* style.css */
-@layer base, frappe, custom;
+@layer base, custom;
 
 @layer base {
     body {
-        font-family: sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
         margin: 0;
         display: flex;
         flex-direction: column;
-        height: 100vh; /* Fixed viewport height */
-        background-color: #f0f0f0;
-        overflow: hidden; /* Body itself should not scroll */
+        height: 100vh;
+        background-color: #2a2a2e;
+        color: #cccccc;
+        overflow: hidden;
     }
 
     header {
-        background-color: #333;
-        color: white;
-        padding: 5px 20px;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        padding: 8px 20px;
         text-align: center;
-        flex-shrink: 0; /* Header takes its natural height */
+        flex-shrink: 0;
+        border-bottom: 1px solid #333;
     }
 
-    header h1 { margin: 0; }
+    header h1 { margin: 0; font-size: 1.2em; }
 
-    .container { /* This is #main-container */
-        display: flex; /* It's a row flex container */
-        flex-grow: 1; /* Takes all remaining vertical space from body */
-        overflow: hidden; /* This container should not scroll */
+    .container {
+        display: flex;
+        flex-grow: 1;
+        overflow: hidden;
     }
 
-    /* YAML Pane */
     .yaml-pane {
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        overflow: hidden; /* Monaco handles its own scrolling */
+        overflow: hidden;
         background-color: #1e1e1e;
         color: #d4d4d4;
-        /* width is set by JS */
     }
 
     .yaml-pane .yaml-pane-header-controls {
-        padding: 15px;
-        padding-bottom: 10px;
+        padding: 10px 15px;
         flex-shrink: 0;
+        border-bottom: 1px solid #333;
     }
 
     .yaml-pane h3 {
         margin-top: 0;
         margin-bottom: 10px;
+        font-size: 1em;
         color: #d4d4d4;
     }
 
@@ -57,108 +58,284 @@
     }
 
     #monaco-editor-container {
-        flex-grow: 1; /* Takes remaining space in .yaml-pane */
-        min-height: 0; /* Allows Monaco editor to scroll within its bounds */
+        flex-grow: 1;
+        min-height: 0;
     }
 
-    /* Resizer */
     .resizer {
         width: 10px;
-        background-color: #5f5f5f;
+        background-color: #33373a;
         cursor: col-resize;
         flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
+        border-left: 1px solid #4a4a4a;
+        border-right: 1px solid #4a4a4a;
     }
-    .resizer:hover { background-color: #777777; }
-    .resizer::before { content: '⋮'; color: #cccccc; font-size: 12px; line-height: 0; }
+    .resizer:hover { background-color: #45494d; }
+    .resizer::before { content: '⋮'; color: #888; font-size: 12px; line-height: 0; }
 
-
-    /* File Controls */
     .file-controls {
         display: flex;
         gap: 10px;
         align-items: center;
     }
     .file-controls button, .file-controls label {
-        background-color: #007acc;
-        color: white;
-        padding: 8px 15px;
-        border: none;
+        background-color: #3c3c3c;
+        color: #ccc;
+        padding: 6px 12px;
+        border: 1px solid #555;
         border-radius: 3px;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 0.9em;
         text-align: center;
         transition: background-color 0.2s ease;
     }
-    .file-controls button:hover, .file-controls label:hover { background-color: #005a9e; }
+    .file-controls button:hover, .file-controls label:hover { background-color: #4a4a4a; border-color: #666; }
     #load-file-input { display: none; }
 
-    /* Error Message */
     .error-message {
-        color: #ff8a80;
-        background-color: #2c0b08;
-        border: 1px solid #ff8a80;
+        color: #ff9999;
+        background-color: #3d2323;
+        border: 1px solid #833535;
         padding: 10px;
         border-radius: 4px;
-        font-family: 'Courier New', Courier, monospace;
+        font-family: 'Consolas', 'Courier New', Courier, monospace;
         white-space: pre-wrap;
+        font-size: 0.9em;
     }
 
-    /* Gantt Pane */
     .gantt-pane {
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        overflow: hidden; /* This pane itself should not scroll */
+        overflow: hidden;
         background-color: #252526;
         color: #d4d4d4;
-        flex: 1; /* Makes it take available width in #main-container */
-        position: relative;
+        flex: 1;
     }
 
     .gantt-pane .gantt-chart-header {
-        padding: 15px;
-        flex: 0 0 auto; /* Header takes its natural height, doesn't grow/shrink */
+        padding: 10px 15px;
+        flex: 0 0 auto;
+        border-bottom: 1px solid #333;
     }
 
-    .gantt-pane h3 { margin: 0; color: #d4d4d4; }
+    .gantt-pane h3 { margin: 0; font-size: 1em; color: #d4d4d4;}
 
     #gantt-chart-target-container {
-        flex: 1 1 auto;    /* Takes all remaining vertical space in .gantt-pane */
-        min-height: 0;     /* Allows its children to correctly use height: 100% */
-        overflow: hidden;  /* THIS MUST NOT SCROLL. We want its grandchild (.gantt-container) to scroll. */
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
         position: relative;
     }
 
     #gantt-chart-target {
-        height: 100%; /* Takes full height of #gantt-chart-target-container */
+        height: 100%;
         width: 100%;
-        /* This div will contain Frappe's .gantt-container. It should not scroll. */
-        position: relative; /* Context for child % heights */
+        overflow: auto;
+        position: relative;
+        background-color: #2d2d30;
+    }
+
+    .gantt-message {
+        color: #888;
+        text-align: center;
+        padding-top: 30px;
+        font-size: 1.1em;
+    }
+    .gantt-message.error {
+        color: #ff8a80;
     }
 }
 
 @layer custom {
-    /*
-      Target Frappe Gantt's .gantt-container when it's a child of our #gantt-chart-target.
-      Force its height to be 100% of its parent (#gantt-chart-target), overriding Frappe's inline pixel height.
-      This allows Frappe's own `overflow: auto` on .gantt-container to manage the vertical scroll
-      because the SVG inside it will be taller than this 100% height.
-    */
-    #gantt-chart-target > .gantt-container {
-        height: 100% !important;
-        width: 100% !important; /* Ensure it also respects parent width for horizontal scroll calc */
-        box-sizing: border-box; /* Good practice if padding/border are involved */
+    .gantt-html-table {
+        display: flex;
+        flex-direction: column;
+        min-width: fit-content;
+        font-size: 0.85em;
     }
 
-    /* Ensure the SVG itself doesn't try to scroll or clip in weird ways */
-    #gantt-chart-target .gantt-container > svg.gantt {
-        display: block; /* Consistent block layout */
-        /* Height and width are set by Frappe JS to large pixel values.
-           The parent .gantt-container now has a constrained height (100%) and overflow:auto,
-           so it will correctly scroll this large SVG.
-        */
+    .gantt-html-timeline-header-container {
+        display: flex;
+        position: sticky;
+        top: 0;
+        /* background-color set by children .gantt-html-timeline-labels and .gantt-html-timeline-ticks-outer's children */
+        z-index: 20;
+        border-bottom: 1px solid #4a4a4f;
+        user-select: none;
     }
+
+    .gantt-html-timeline-labels { /* This is the "Tasks" / "Dates" header part */
+        flex-shrink: 0;
+        box-sizing: border-box;
+        padding: 0 5px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        align-items: center;
+        border-right: 1px solid #4a4a4f;
+        font-weight: bold;
+        color: #aaa;
+        background-color: #333337; /* Sticky part needs a solid background */
+        position: sticky; /* Sticky for the header's label column */
+        left: 0;
+        z-index: 21; /* Higher than timeline ticks, same as its row parent */
+    }
+    .gantt-html-timeline-labels > div {
+        height: 50%;
+        display: flex;
+        align-items: center;
+    }
+
+    .gantt-html-timeline-ticks-outer {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        background-color: #333337; /* Background for the ticks area of the header */
+    }
+
+    .gantt-html-timeline-ticks {
+        display: flex;
+        position: relative;
+    }
+    .gantt-html-timeline-ticks.major {
+        border-bottom: 1px solid #4a4a4f;
+    }
+
+    .gantt-html-tick {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        border-right: 1px solid #404043;
+        flex-shrink: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        padding: 0 2px;
+        position: relative;
+        z-index: 1; /* To ensure text is above its own background stripe */
+    }
+    .gantt-html-tick.major-tick {
+        justify-content: center;
+        color: #bbb;
+        font-weight: bold;
+        border-right: 1px solid #555558;
+    }
+
+    .gantt-html-tasks-container {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .gantt-html-task-row {
+        display: flex;
+        align-items: stretch;
+        box-sizing: border-box;
+        border-bottom: 1px solid #38383b;
+        /* Base background color if needed, but stripes/label will mostly cover it */
+        /* background-color: #2d2d30;  */
+    }
+
+    /* Hover effect for the entire row - applied to label and schedule cell stripes */
+    .gantt-html-task-row:hover .gantt-html-task-label {
+        background-color: #424246 !important; /* Use !important to override base/zebra */
+    }
+    .gantt-html-task-row:hover .gantt-html-task-schedule-cell .gantt-day-stripe-even {
+        background-color: #4a4a4e !important; /* Slightly lighter hover for even stripes */
+    }
+    .gantt-html-task-row:hover .gantt-html-task-schedule-cell .gantt-day-stripe-odd {
+        background-color: #454549 !important; /* Slightly lighter hover for odd stripes */
+    }
+
+
+    .gantt-html-task-label { /* This is the task name cell in each row */
+        flex-shrink: 0;
+        box-sizing: border-box;
+        padding: 0 8px;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-right: 1px solid #4a4a4f;
+        color: #ccc;
+
+        position: sticky; /* Make task labels sticky */
+        left: 0;
+        z-index: 10; /* Above schedule cell stripes, below main header */
+
+        /* Set base background colors for non-hovered state, considering zebra striping */
+        background-color: #2d2d30; /* Default for odd rows */
+    }
+    .gantt-html-task-row:nth-child(even) .gantt-html-task-label {
+        background-color: #303033; /* For even rows (zebra) */
+    }
+
+
+    .gantt-html-task-schedule-cell {
+        flex-grow: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Day Stripe Styles for header ticks AND task cell backgrounds */
+    .gantt-day-stripe-even {
+        background-color: #3a3a3e;
+    }
+    .gantt-day-stripe-odd {
+        background-color: #333337;
+    }
+    /* .gantt-html-tick inherits these for its background */
+
+
+    .gantt-html-task-bar {
+        position: absolute;
+        box-sizing: border-box;
+        border-radius: 3px;
+        background-color: #007acc;
+        color: white;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        padding: 0 6px;
+        font-size: 0.9em;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        cursor: default;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        z-index: 5; /* Above day stripes within the same cell */
+    }
+    .gantt-html-task-bar:hover {
+        filter: brightness(1.2);
+    }
+
+    .gantt-milestone {
+        background-color: #e040fb !important;
+        border-radius: 0;
+        justify-content: center;
+        z-index: 6; /* Above day stripes */
+    }
+
+    /* Custom bar classes from YAML */
+    .bar-activity-stay { background-color: #5c6bc0; }
+    .bar-milestone { background-color: #ffca28; color: #333; }
+    .bar-meal { background-color: #ffca28; }
+    .bar-hotel { background-color: #26a69a; }
+    .bar-activity { background-color: #66bb6a; }
+    .bar-flight { background-color: #ef5350; }
+    .bar-buffer { background-color: #bdbdbd; color: #333; }
+
+    .bar-blue { background-color: #42a5f5; }
+    .bar-green { background-color: #66bb6a; }
+    .bar-orange { background-color: #ffa726; }
+    .bar-purple { background-color: #ab47bc; }
+    .bar-red { background-color: #ef5350; }
+    .bar-grey { background-color: #78909c; }
 }
