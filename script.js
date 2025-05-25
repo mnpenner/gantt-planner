@@ -305,8 +305,8 @@ function preprocessTasks(tasks, parsingErrors) {
             start: task.final_start_date,
             end: task.final_end_date,
             dependencies: dependenciesString,
-            type: task.type || '',
-            details: task.details ?? task.description ?? task.desc || '',
+            type: task.type ?? '',
+            details: task.details ?? task.description ?? task.desc ?? '',
         };
     }).filter(t => t !== null);
 }
