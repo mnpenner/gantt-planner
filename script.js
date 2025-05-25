@@ -27,7 +27,7 @@ let debounceTimer;
 const LOCAL_STORAGE_KEY = 'yamlGanttConfig';
 
 // --- Resizing constants ---
-const LABEL_COLUMN_WIDTH_PX = 240;
+const LABEL_COLUMN_WIDTH_PX = 320;
 const ROW_HEIGHT_PX = 28;
 const BAR_HEIGHT_PX = 20;
 const MILESTONE_WIDTH_PX = 12;
