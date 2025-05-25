@@ -609,23 +609,42 @@ function renderGantt(yamlString) {
 }
 
 
-function uint8ArrayToUrlSafeBase64(uint8Array) { /* ... (no changes) ... */
-    let binary = '';
-    uint8Array.forEach(byte => binary += String.fromCharCode(byte));
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function urlSafeBase64ToUint8Array(base64String) { /* ... (no changes) ... */
-    base64String = base64String.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64String.length % 4) {
-        base64String += '=';
+const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+function uint8ArrayToBase62(uint8Array) {
+    let value = BigInt(0);
+    for (let i = 0; i < uint8Array.length; i++) {
+        value = (value << BigInt(8)) + BigInt(uint8Array[i]);
     }
-    const binary = atob(base64String);
-    const uint8Array = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        uint8Array[i] = binary.charCodeAt(i);
+
+    if (value === BigInt(0)) return '0';
+
+    let result = '';
+    while (value > 0) {
+        result = BASE62_ALPHABET[value % BigInt(62)] + result;
+        value = value / BigInt(62);
     }
-    return uint8Array;
+
+    return result;
 }
+
+function base62ToUint8Array(base62) {
+    let value = BigInt(0);
+    for (let i = 0; i < base62.length; i++) {
+        const index = BASE62_ALPHABET.indexOf(base62[i]);
+        if (index === -1) throw new Error(`Invalid base62 character: ${base62[i]}`);
+        value = value * BigInt(62) + BigInt(index);
+    }
+
+    const bytes = [];
+    while (value > 0) {
+        bytes.unshift(Number(value % BigInt(256)));
+        value = value / BigInt(256);
+    }
+
+    return new Uint8Array(bytes);
+}
+
 
 require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
 let workerProxy = URL.createObjectURL(new Blob([`self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`], { type: 'text/javascript' }));
@@ -638,7 +657,7 @@ require(['vs/editor/editor.main'], function () {
     if (window.location.hash && window.location.hash.startsWith('#data=')) {
         const encodedData = window.location.hash.substring(6);
         try {
-            const compressedData = urlSafeBase64ToUint8Array(encodedData);
+            const compressedData = base62ToUint8Array(encodedData);
             const decompressedYaml = pako.inflate(compressedData, { to: 'string' });
             initialContent = decompressedYaml;
             history.pushState("", document.title, window.location.pathname + window.location.search);
@@ -717,7 +736,7 @@ require(['vs/editor/editor.main'], function () {
         const yamlContent = monacoEditor.getValue();
         try {
             const compressed = pako.deflate(yamlContent, { level: 9 });
-            const encoded = uint8ArrayToUrlSafeBase64(compressed);
+            const encoded = uint8ArrayToBase62(compressed);
             const shareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
 
             await navigator.clipboard.writeText(shareUrl);
