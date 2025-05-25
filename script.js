@@ -305,7 +305,8 @@ function preprocessTasks(tasks, parsingErrors) {
             start: task.final_start_date,
             end: task.final_end_date,
             dependencies: dependenciesString,
-            custom_class: task.custom_class || ''
+            type: task.type || '',
+            details: task.details ?? task.description ?? task.desc || '',
         };
     }).filter(t => t !== null);
 }
@@ -536,8 +537,8 @@ function renderGantt(yamlString) {
             taskBar.style.height = `${BAR_HEIGHT_PX}px`;
             taskBar.style.top = `${(ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2}px`;
 
-            if (task.custom_class) {
-                task.custom_class.split(' ').forEach(cls => {
+            if (task.type) {
+                task.type.split(' ').forEach(cls => {
                     if (cls) taskBar.classList.add(cls.trim());
                 });
             }
@@ -554,23 +555,38 @@ function renderGantt(yamlString) {
             let barLeftPx = offsetDaysFractional * DAY_COLUMN_WIDTH_PX; // Uses global
             let barWidthPx = durationDaysFractional * DAY_COLUMN_WIDTH_PX; // Uses global
 
-            const formattedStartTime = taskStart.format('ddd, MMM D, YYYY @ h:mma');
-            const formattedEndTime = taskEnd.format('ddd, MMM D, YYYY @ h:mma');
+            const sameDay = taskStart.isSame(taskEnd, 'day');
+
+            const formattedStartTime = sameDay
+                ? taskStart.format('ddd, MMM D, YYYY @ h:mma')
+                : taskStart.format('ddd, MMM D, YYYY @ h:mma');
+
+            const formattedEndTime = sameDay
+                ? taskEnd.format('h:mma')
+                : taskEnd.format('ddd, MMM D, YYYY @ h:mma');
 
             const formattedDuration = formatDuration(durationMilliseconds);
 
             if (durationMilliseconds <= 0) { // Milestone
                 taskBar.classList.add('gantt-milestone');
                 barWidthPx = MILESTONE_WIDTH_PX;
-                // Center milestone: start of its time + half day width - half milestone width
-                barLeftPx = (offsetDaysFractional * DAY_COLUMN_WIDTH_PX) - (MILESTONE_WIDTH_PX / 2); // Uses global
-                if(DAY_COLUMN_WIDTH_PX > MILESTONE_WIDTH_PX) {
-                    barLeftPx += DAY_COLUMN_WIDTH_PX * (taskStart.hour() / 24 + taskStart.minute() / (24*60)); // Uses global
+                barLeftPx = (offsetDaysFractional * DAY_COLUMN_WIDTH_PX) - (MILESTONE_WIDTH_PX / 2);
+                if (DAY_COLUMN_WIDTH_PX > MILESTONE_WIDTH_PX) {
+                    barLeftPx += DAY_COLUMN_WIDTH_PX * (taskStart.hour() / 24 + taskStart.minute() / (24 * 60));
                 }
                 taskBar.title = `${task.name} (Milestone)\n${formattedStartTime}`;
             } else {
-                taskBar.title = `${task.name}\nStart: ${formattedStartTime}\nEnd: ${formattedEndTime}\nDuration: ${formattedDuration}`;
+                const timeRange = sameDay
+                    ? `${taskStart.format('ddd, MMM D, YYYY @ h:mma')} – ${taskEnd.format('h:mma')}`
+                    : `Start: ${formattedStartTime}\nEnd: ${formattedEndTime}`;
+
+                taskBar.title = `${task.name}\n${timeRange}\nDuration: ${formattedDuration}`;
             }
+
+            if (task.details) {
+                taskBar.title += `\n\n${task.details}`;
+            }
+
 
             taskBar.style.left = `${Math.max(0, barLeftPx)}px`;
             taskBar.style.width = `${Math.max(2, barWidthPx)}px`;

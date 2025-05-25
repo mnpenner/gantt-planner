@@ -324,19 +324,23 @@
     }
 
     /* Custom bar classes from YAML */
-    .bar-activity-stay { background-color: #5c6bc0; }
-    .bar-milestone { background-color: #ffca28; color: #333; }
-    .bar-meal { background-color: #ffca28; }
-    .bar-hotel { background-color: #26a69a; }
-    .bar-activity { background-color: #66bb6a; }
-    .bar-flight { background-color: #ef5350; }
-    .bar-travel { background-color: #ef5350; }
-    .bar-buffer { background-color: #bdbdbd; color: #333; }
 
-    .bar-blue { background-color: #42a5f5; }
-    .bar-green { background-color: #66bb6a; }
-    .bar-orange { background-color: #ffa726; }
-    .bar-purple { background-color: #ab47bc; }
-    .bar-red { background-color: #ef5350; }
-    .bar-grey { background-color: #78909c; }
+    .gantt-html-task-bar {
+        &.activity-stay { background-color: #5c6bc0; }
+        &.milestone { background-color: #ffca28; color: #333; }
+        &.meal { background-color: #ffca28; }
+        &.hotel { background-color: #26a69a; }
+        &.activity { background-color: #66bb6a; }
+        &.flight { background-color: #ef5350; }
+        &.travel { background-color: #ef5350; }
+        &.buffer { background-color: #bdbdbd; color: #333; }
+
+        &.blue { background-color: #42a5f5; }
+        &.green { background-color: #66bb6a; }
+        &.orange { background-color: #ffa726; }
+        &.purple { background-color: #ab47bc; }
+        &.red { background-color: #ef5350; }
+        &.grey { background-color: #78909c; }
+    }
+
 }
